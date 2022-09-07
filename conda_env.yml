@@ -4,3 +4,6 @@ dependencies:
 - numpy=1.19.1
 - matplotlib=3.4.3
 - networkx=2.8.6
+
+# Pip install ghhops-server through: pip install ghhops-server
+# Make sure you first install pip in your virtual environment, see cheat sheet
