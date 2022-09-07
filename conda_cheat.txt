@@ -1,0 +1,14 @@
+# Create an environment:
+conda create --name core python=3.8
+
+# Activate environment
+Conda activate core
+
+# Update your environment with the conda_env.yml dependencies:
+conda env update --prefix ./env --file conda_env.yml  --prune
+
+# Push files to github:
+Click on source control on left bar
+Click on + icons for files you want to add to github
+Click on three dots ... > commit > commit staged (files are now committed)
+Click on three dots ... > Pull, push > push
