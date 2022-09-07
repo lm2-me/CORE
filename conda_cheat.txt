@@ -12,3 +12,7 @@ Click on source control on left bar
 Click on + icons for files you want to add to github
 Click on three dots ... > commit > commit staged (files are now committed)
 Click on three dots ... > Pull, push > push
+
+# Install pip in your virtual environment
+# Required to install ghhops-server
+python -m pip install --upgrade pip
