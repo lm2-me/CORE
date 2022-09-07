@@ -1,6 +1,6 @@
 # CORE
 
-Group Members: Job de Vogel, Jirri , Lisa-Marie Mueller, Henk Rusting, Sebastian Stripp
+Group Members: Job de Vogel, Jirri van den Bos, Lisa-Marie Mueller, Henk Rusting, Sebastian Stripp
 
 AR3B012 CORE
 
