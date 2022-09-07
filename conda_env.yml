@@ -5,6 +5,10 @@ dependencies:
 - matplotlib=3.4.3
 - networkx=2.8.4
 - flask=2.1.3
+- pip
+- pip:
+  - ghhops-server==1.5.3
+
 
 # Please install through pip:
 # - ghhops-server=1.5.3
