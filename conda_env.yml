@@ -9,6 +9,8 @@ dependencies:
 - pip:
   - ghhops-server==1.5.3
 
+#if you run " conda env update --prefix ./env --file conda_env.yml  --prune " 
+#then it will install pip and ghhops-server without needing to install seperately
 
 # Please install through pip:
 # - ghhops-server=1.5.3
