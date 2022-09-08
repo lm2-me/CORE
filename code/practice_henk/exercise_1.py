@@ -1,6 +1,5 @@
 # Excercise 1 Calculate Moment on a beam with a distributed load
 # Henk Rusting 9717445
-import math
 
 
 # Get user input (Length and distributed load)
