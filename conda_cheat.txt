@@ -1,5 +1,6 @@
 # Create an environment:
-conda create --name core python=3.8
+conda env create -f conda_env.yml
+(or) conda create --name core python=3.8
 
 # Activate environment
 Conda activate core
@@ -14,5 +15,6 @@ Click on three dots ... > commit > commit staged (files are now committed)
 Click on three dots ... > Pull, push > push
 
 # Install pip in your virtual environment
+(This is done through the .yml file now)
 # Required to install ghhops-server
 python -m pip install --upgrade pip
