@@ -4,7 +4,6 @@
 # Define moment caluculation function
 def moment(q, l):
     m = round((q*(pow(l, 2)))/8,1)
-
     return str(m) + " kNm"
 
 # Get user input (Length of beam). Including Check for valid input.
