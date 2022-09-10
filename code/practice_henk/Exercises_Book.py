@@ -3,6 +3,9 @@
 
 
 #Excercise 1
+from sys import float_repr_style
+
+
 for i in range(4):
     print('********************')
 print(' ')
@@ -28,6 +31,8 @@ print(' ')
 
 #Excercise 5
 
-temp = eval(input("Enter a number: "))
-print("The square of ", temp, " is ", pow (temp, 2), ".", sep='')
-
+try:
+    temp = float(input("Enter a number: "))
+    print("The square of ", temp, " is ", pow (temp, 2), ".", sep='')
+except ValueError:
+         print("Not a valid number.  Try again...")
