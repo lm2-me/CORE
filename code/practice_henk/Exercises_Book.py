@@ -19,5 +19,15 @@ print(' ')
 for i in range(4):
     number_of_stars = i + 1
     print('*'*number_of_stars)
+print(' ')
 
+#Excercise 4
+
+print((512-282)/((47*48)+5))
+print(' ')
+
+#Excercise 5
+
+temp = eval(input("Enter a number: "))
+print("The square of ", temp, " is ", pow (temp, 2), ".", sep='')
 
