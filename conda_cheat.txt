@@ -1,6 +1,5 @@
 # Create an environment:
 conda env create -f conda_env.yml
-(or) conda create --name core python=3.8
 
 # Activate environment
 Conda activate core
