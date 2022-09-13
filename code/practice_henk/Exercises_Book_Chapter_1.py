@@ -51,12 +51,12 @@
 #Exercise 7
 
 # Define function weight kilograms to pounds
-from tkinter import E
+# from tkinter import E
 
 
-def weigth_in_pounds(weigth):
-    lbs = round(kg*2.2, 1)
-    return str(lbs) + " is your weigth in Pounds."
+# def weigth_in_pounds(weigth):
+#     lbs = round(kg*2.2, 1)
+#     return str(lbs) + " is your weigth in Pounds."
 
 # # Get user input (weigth in kg). Check input
 # while True:
