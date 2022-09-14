@@ -1,4 +1,3 @@
-from typing import Type
 import osmnx as ox
 import networkx as nx
 import geopandas
@@ -67,6 +66,7 @@ def get_node_osmids_df(graph_df):
 
 def main():
     graph = load_osm_graph(Delft, 'data/Delft.osm')
+    graph = add_speed_travel_time(graph)
 
     node_osmids = get_node_osmids_graph(graph)
     
