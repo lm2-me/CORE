@@ -27,10 +27,11 @@ def load_osm_graph(coordinates, filepath, query=False):
     print("Finished loading")
     return graph
 
-# Add speed and travel time to graph
-def add_speed_travel_time(graph):
+# Add speed, length and travel time to graph
+def add_rel_attributes(graph):
     graph = ox.speed.add_edge_speeds(graph)
-    graph = ox.add_edge_travel_times(graph)
+    graph = ox.distance.add_edge_lengths(graph)
+    graph = ox.speed.add_edge_travel_times(graph)
 
     return graph
 
@@ -44,7 +45,7 @@ def convert_graph_edges_to_df(graph):
 def convert_graph_nodes_to_df(graph):
     return ox.graph_to_gdfs(graph, edges=False)
 
-# Get all node or edge attributes included in data
+# Get all node or edge attribute types included in data
 def get_edge_attribute_types(graph):
     edge_attributes = ox.graph_to_gdfs(graph, nodes=False).columns
     return edge_attributes
@@ -64,9 +65,17 @@ def get_node_osmids_df(graph_df):
 
     return graph_df.index
 
+# Coming ....
+# Access edge osmids, not sure how this data is formatted
+# u,v indicates osmids of origin and destination node osmids
+
+# Calculate shortest travel_time between two random points
 def main():
     graph = load_osm_graph(Delft, 'data/Delft.osm')
-    graph = add_speed_travel_time(graph)
+    graph = add_rel_attributes(graph)
+
+    print(get_edge_attribute_types(graph))
+    print(convert_graph_edges_to_df(graph))
 
     node_osmids = get_node_osmids_graph(graph)
     
