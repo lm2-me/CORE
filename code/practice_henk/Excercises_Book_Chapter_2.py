@@ -92,8 +92,37 @@
 #        n2 = nth
 #        count += 1
 
+# # Exercise 10
 
+# num_stars = int(input("How many stars? "))
+# num_lines = int(input("How many lines? "))
+
+# for i in range(num_lines):
+#     print(num_stars*"*")
     
+# # Exercise 11
+
+# while True:
+#     try:
+#         num_stars = int(input("How many stars? "))
+#         break
+#     except:
+#          print("Not a valid number.  Try again...")
+
+# while True:
+#     try:
+#         num_lines = int(input("How many lines? "))
+#         break
+#     except:
+#         print("Not a valid number.  Try again...")
+
+# print(num_stars*"*")
+
+# for i in range(num_lines-2):
+#     print("*",(num_stars-4)*" ", "*")
+
+# print(num_stars*"*")
+
 
 
 
