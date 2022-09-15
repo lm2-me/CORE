@@ -18,5 +18,7 @@ def bisection_root(x):
         iteration +=1
     return (result, iteration)
 
-find_square = 250567234234
+find_square = 16
+resultaat, iteratie = bisection_root(find_square)
 print(bisection_root(find_square))
+print(find_square)
