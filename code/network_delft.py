@@ -1,92 +1,158 @@
 import osmnx as ox
-import networkx as nx
-import geopandas
 import os.path
+import pickle
+import time
 
-Delft = [52.03, 51.96, 4.4, 4.3]
+class CityNetwork():
+    def __init__(self, name, coordinates, graph = None, graph_edges_df = None, graph_nodes_df = None):
+        self.name = name
+        self.coordinates = coordinates
+        self.graph = graph
+        self.graph_edges_df = graph_edges_df
+        self.graph_nodes_df = graph_nodes_df
 
-# Load an osm graph from online or local saved file
-# Query indicates geocodable location such as 'Delft'
-def load_osm_graph(coordinates, filepath, query=False):
-    if os.path.isfile(filepath):
-        # Load a graph from drive
-        print("Loading...")
-        graph = ox.load_graphml(filepath=filepath)
+    def __repr__(self):
+        return "<CityNetwork object of {}>".format(self.name)
 
-    else:
-        # Retrieve graph online and save local
-        print("Retrieving online data...")
-        if query:
-            graph = ox.graph.graph_from_place(query, network_type='drive')
-        else:    
-            graph = ox.graph_from_bbox(*coordinates, simplify=True, retain_all=False, network_type='all', clean_periphery=True)
+    # Load an osm graph from online or local saved file
+    # Query indicates geocodable location such as 'Delft'
+    def load_osm_graph(self, filepath, query=False):
+        if os.path.isfile(filepath):
+            # Load a graph from drive
+            print("Loading...")
+            graph = ox.load_graphml(filepath=filepath)
+
+        else:
+            # Retrieve graph online and save local
+            print("Retrieving online data...")
+            if query:
+                graph = ox.graph.graph_from_place(query, network_type='drive')
+            else:    
+                graph = ox.graph_from_bbox(*self.coordinates, simplify=True, retain_all=False, network_type='all', clean_periphery=True)
+            
+            print("Saving...")
+            ox.save_graphml(graph, filepath=filepath)
         
-        print("Saving...")
-        ox.save_graphml(graph, filepath=filepath)
+        self.graph = graph
+        print("Finished loading")
 
-    print("Finished loading")
-    return graph
+    # Add speed, length and travel time to graph
+    def add_rel_attributes(self):
+        graph = ox.speed.add_edge_speeds(self.graph)
+        graph = ox.distance.add_edge_lengths(graph)
+        graph = ox.speed.add_edge_travel_times(graph)
 
-# Add speed, length and travel time to graph
-def add_rel_attributes(graph):
-    graph = ox.speed.add_edge_speeds(graph)
-    graph = ox.distance.add_edge_lengths(graph)
-    graph = ox.speed.add_edge_travel_times(graph)
+        self.graph = graph
 
-    return graph
-
-# Convert graph of edges or nodes to dataframe
-# Returns a pandas dataframe
-# Specific columns and rows can be accessed by using the standard
-# pandas method, such as graph.loc[:, 'x'] or graph.loc[:, ['x','y']]
-def convert_graph_edges_to_df(graph):
-    return ox.graph_to_gdfs(graph, nodes=False)
-
-def convert_graph_nodes_to_df(graph):
-    return ox.graph_to_gdfs(graph, edges=False)
-
-# Get all node or edge attribute types included in data
-def get_edge_attribute_types(graph):
-    edge_attributes = ox.graph_to_gdfs(graph, nodes=False).columns
-    return edge_attributes
-
-def get_node_attribute_types(graph):
-    node_attributes = ox.graph_to_gdfs(graph, edges=False).columns
-    return node_attributes
-
-# Access all node osmid's from graph
-def get_node_osmids_graph(graph):
-    return list(graph.nodes())
-
-# Access all node osmid's from pandas dataframe
-def get_node_osmids_df(graph_df):
-    if not isinstance(graph_df, geopandas.geodataframe.GeoDataFrame):
-        raise TypeError("Please input a graph dataframe using the get_graph_..._df function")
-
-    return graph_df.index
-
-# Coming ....
-# Access edge osmids, not sure how this data is formatted
-# u,v indicates osmids of origin and destination node osmids
-
-# Calculate shortest travel_time between two random points
-def main():
-    graph = load_osm_graph(Delft, 'data/Delft.osm')
-    graph = add_rel_attributes(graph)
-
-    print(get_edge_attribute_types(graph))
-    print(convert_graph_edges_to_df(graph))
-
-    node_osmids = get_node_osmids_graph(graph)
+    # Create a dataframe for the edges    
+    def convert_graph_edges_to_df(self):
+        if self.graph is not None:
+            self.graph_edges_df =  ox.graph_to_gdfs(self.graph, nodes=False)
+        else:
+            raise ValueError('CityNetwork object does not contain graph.')
     
-    orig = node_osmids[0]
-    dest = node_osmids[1]
+    # Create a dataframe for the nodes
+    def convert_graph_nodes_to_df(self):
+        if self.graph is not None:
+            self.graph_nodes_df = ox.graph_to_gdfs(self.graph, edges=False)
+        else:
+            raise ValueError('CityNetwork object does not contain graph.')
+    
+    # Get all node or edge attribute types included in data
+    def get_edge_attribute_types(self):
+        if self.graph_edges_df is None:
+            raise ValueError('Dataframe of edges does not exist, please generate df with convert_graph_edges_to_df()')
+        
+        edge_attributes = self.graph_edges_df.columns
+        return edge_attributes
+    
+    def get_node_attribute_types(self):
+        if self.graph_nodes_df is None:
+            raise ValueError('Dataframe of nodes does not exist, please generate df with convert_graph_nodes_to_df()')
+        
+        node_attributes = self.graph_nodes_df.columns
+        return node_attributes
+    
+    # Access all node osmid's from graph
+    # Returns a list
+    def get_node_osmids(self):
+        if self.graph is None:
+            raise ValueError('Graph does not exist, please generate graph with load_osm_graph()')
+        return list(self.graph.nodes())
+    
+    """
+    # Storing the graph as a pickle file avoids having to recalculate
+    # attributes such as speed, length etc. and is way faster
 
-    print("Running...")
-    route = ox.distance.shortest_path(graph, orig, dest, weight='travel_time', cpus=None)
+    Args:
+        - name: name of the CityNetwork, string
+    """
+    def save_graph(self, name):        
+        object_name = name
+        path = 'data/' + str(object_name) + '.pkl'
+        print('Saving {} to {}'.format(object_name, path))
 
-    # Plot multiple routes with ox.plot_graph_routes()
-    ox.plot_graph_route(graph, route, route_color='g')
+        with open(path, 'wb') as file:
+            pickle.dump(self, file, pickle.HIGHEST_PROTOCOL)
+
+    # Loading the graph as a pickle file avoids having to recalculate
+    # attributes such as speed, length etc. and is way faster
+    # Call this function through var = CityNetwork.load_graph('var')
+    @staticmethod
+    def load_graph(name):
+        object_name = name
+        path = 'data/' + str(object_name) + '.pkl'
+
+        print("Loading...")
+        with open(path, 'rb') as file:
+            graph = pickle.load(file)
+        
+        print('Loaded {} to object'.format(object_name))
+        
+        return graph
+
+    # Coming ....
+    # Access edge osmids, not sure how this data is formatted
+    # u,v indicates osmids of origin and destination node osmids
+
+# Decorator to time functions, just a useful decorator
+def timer_decorator(func):
+    def wrapper():
+        start = time.time()
+        func()
+        end = time.time()
+        print('Executed {} fuction in {}s'.format(func.__name__, (round(end-start,2))))
+        return func
+    return wrapper
+
+@timer_decorator
+def main():
+    """
+    Initialize network if not already saved as pickle file:
+    """
+    # Initialize CityNetwork object
+    # Delft = CityNetwork('Delft', [52.03, 51.96, 4.4, 4.3])
+    
+    # Load osm from local or online file
+    # Delft.load_osm_graph('data/Delft.osm')
+    
+    # Add speeds, lengths and distances to graph
+    # Delft.add_rel_attributes()
+
+    # Calculate dataframes of nodes and edges
+    # Delft.convert_graph_edges_to_df()
+    # Delft.convert_graph_nodes_to_df()
+
+    # Save Pickle file
+    # Delft.save_graph('Delft')
+
+    """
+    Load network from pickle file
+    """
+    Delft = CityNetwork.load_graph('Delft')
+
+    print(Delft)
+    print(Delft.graph_nodes_df)
 
 if __name__ == '__main__':
     main()
