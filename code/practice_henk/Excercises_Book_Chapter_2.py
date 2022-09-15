@@ -42,29 +42,87 @@
 # for i in range(1):
 #     print("EFFFFFFG", end = '')
 
-# Exercise 8
+# # Exercise 8
 
 
 
-while True:
-    try:
-        number = int(input("How many times do you want to print your name: "))
-        break
-    except ValueError:
-        print("Not a valid number.  Try again...")
-print (number)
+# while True:
+#     try:
+#         number = int(input("How many times do you want to print your name: "))
+#         break
+#     except ValueError:
+#         print("Not a valid number.  Try again...")
+# print (number)
 
-while True:
-    try:
-        name = str(input("Enter your name: "))
-        break
-    except:
-        print("Not a valid number.  Try again...")
+# while True:
+#     try:
+#         name = str(input("Enter your name: "))
+#         break
+#     except:
+#         print("Not a valid number.  Try again...")
 
-print(name, "is your name.")
+# for i in range(number):
+#     print(name)
 
+# # Exercise 9
 
+# # Display the Fibonacci sequence  n-th terms
+
+# nterms = int(input("How many terms? "))
+
+# # first two terms
+# n1, n2 = 1, 1
+# count = 0
+
+# # check if the number of terms is valid
+# if nterms <= 0:
+#    print("Please enter a positive integer")
+# # if there is only one term, return n1
+# elif nterms == 1:
+#    print("Fibonacci sequence upto",nterms,":")
+#    print(n1)
+# # generate fibonacci sequence
+# else:
+#    print("Fibonacci sequence:")
+#    while count < nterms:
+#        print(n1)
+#        nth = n1 + n2
+#        # update values
+#        n1 = n2
+#        n2 = nth
+#        count += 1
+
+# # Exercise 10
+
+# num_stars = int(input("How many stars? "))
+# num_lines = int(input("How many lines? "))
+
+# for i in range(num_lines):
+#     print(num_stars*"*")
     
+# # Exercise 11
+
+# while True:
+#     try:
+#         num_stars = int(input("How many stars? "))
+#         break
+#     except:
+#          print("Not a valid number.  Try again...")
+
+# while True:
+#     try:
+#         num_lines = int(input("How many lines? "))
+#         break
+#     except:
+#         print("Not a valid number.  Try again...")
+
+# print(num_stars*"*")
+
+# for i in range(num_lines-2):
+#     print("*",(num_stars-4)*" ", "*")
+
+# print(num_stars*"*")
+
 
 
 
