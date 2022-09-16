@@ -1,9 +1,37 @@
+"""
+CityNetwork class which builds network from OSM
+and calculates shortest paths
+
+Classes:
+    - CityNetwork
+
+    Functions:
+        - load_osm_graph: load osm data to networkx graph online or local
+        - add_rel_attributes: calculate speed, length and travel_time
+        - project_graph: project graph on different coordinate system
+        - convert_graph_edges_to_df: build dataframe for all edges
+        - convert_graph_nodes_to_df: build dataframe for all nodes
+        - get_edge_attribute_types: get all attribute types from edge dataframe
+        - get_node_attribute_types: get all attribute types from node dataframe
+        - get_node_osmids: get all osm id's from nodes
+        - get_edge_osmids: get all osm id's from edges
+        - save_graph: save graph to pickle file
+        - load_graph: load graph from pickle file
+        - shortest_paths: calculate shortest paths between nodes or coordinates
+        - plot: plot city graph without routes
+
+Decorators:
+    - timer_decorator: time a function
+
+Other functions:
+    - main: calculate the shortest path
+"""
+
 import osmnx as ox
 import taxicab as tc
 import os.path
 import pickle
 import time
-import matplotlib.pyplot as plt
 import warnings
 
 # Ignore the userwarning from taxicab temporarily
@@ -144,8 +172,7 @@ class CityNetwork():
         # You are using coordinate tuples
         else:
             print('Taxicab initiated...')
-            # Calculate shortest paths with taxicab package
-            paths = tc.distance.shortest_path(self.graph, orig, dest)     
+            paths = tc.distance.shortest_path(self.graph, orig, dest)
         
         end = time.time()
         print('Finished calculating {} path(s) in {} seconds.'.format(len(orig) if isinstance(orig, list) else 1, round(end-start, 2))) 
@@ -161,25 +188,6 @@ class CityNetwork():
                 ox.plot_graph_route(self.graph, paths, route_linewidth=self.route_linewidth,
                     figsize=self.figsize, bgcolor=self.bgcolor, edge_color=self.edge_color, node_color=self.node_color, node_size=self.node_size)
         elif plot:
-            # Now make it multiprocessing!
-
-            """ EXAMPLE:
-            from multiprocessing import Pool
-
-            def print_range(lrange):
-                print('First is {} and last is {}'.format(lrange[0], lrange[1]))
-
-
-            def run_in_parallel():
-                ranges = [[0, 10], [10, 20], [20, 30]]
-                pool = Pool(processes=len(ranges))
-                pool.map(print_range, ranges)
-
-
-            if __name__ == '__main__':
-                run_in_parallel()
-            """
-
             tc.plot.plot_graph_route(self.graph, paths, route_linewidth=self.route_linewidth,
                     figsize=self.figsize, bgcolor=self.bgcolor, edge_color=self.edge_color, node_color=self.node_color, node_size=self.node_size)
         return paths
@@ -245,14 +253,16 @@ def main():
     Delft = CityNetwork.load_graph('Delft')
 
     # Pick a random origin
-    # orig = Delft.get_node_osmids()[945]
-    orig = (51.99274, 4.35108)
+    orig = Delft.get_node_osmids()[945]
+    # orig = (51.99274, 4.35108)
 
     # Pick a random range of destinations
-    # dest = Delft.get_node_osmids()[0:100]
-    dest = (52.02184, 4.37690)
+    dest = Delft.get_node_osmids()[0:100]
+    # dest = (52.02184, 4.37690)
 
-    Delft.shortest_paths(orig, dest, from_coordinates=True, plot=True)
+    # Make sure you set from_coordinates to True when using tuple coordinates
+    distance = Delft.shortest_paths(orig, dest, from_coordinates=False, plot=True)[0]
+    print('Distance of shortest path is {}m'.format(round(distance, 1)))
 
 if __name__ == '__main__':
     main()
