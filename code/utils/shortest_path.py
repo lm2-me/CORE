@@ -8,14 +8,12 @@ from shapely.geometry import Point
 from shapely.geometry import LineString
 from shapely.ops import substring
 
-from osmnx import load_graphml, project_graph
+from osmnx import load_graphml
 from osmnx.distance import nearest_edges
 from osmnx.distance import great_circle_vec
 from osmnx.utils_graph import get_route_edge_attributes
 
 from pyproj import Transformer
-
-import warnings
 
 '''
     The core of this code is written by Nathan Rooy in the
@@ -32,11 +30,8 @@ import warnings
     function and optimized.
 '''
 
-# Ignore the userwarning from taxicab temporarily
-#warnings.simplefilter("ignore")
-
 # Transform coordinates from 'sphere'(globe) to 'surface (map)
-def transform_coordinates(lon, lat):
+def transform_coordinates(lat, lon): 
     # From epsg:4326 to epsg:3857
     transformer = Transformer.from_crs("epsg:4326", "epsg:3857")
     x, y = transformer.transform(lat, lon)
@@ -47,30 +42,19 @@ def find_nearest_edge(graph, orig_yx, dest_yx):
     """
     Optimize using ox.distance.nearest_edges with interpolate, see documentation
     """
-
-    #print(graph.graph["crs"])
-
-    #(latitude, longitude)
-    
     # # WGS 84 -- WGS84 World Geodetic System 1984, used in GPS
     # # More info at https://gist.github.com/keum/7441007
-    orig_yx = transform_coordinates(orig_yx[1], orig_yx[0])
-    dest_yx = transform_coordinates(dest_yx[1], dest_yx[0])
+    orig_yx = transform_coordinates(orig_yx[0], orig_yx[1])
+    dest_yx = transform_coordinates(dest_yx[0], dest_yx[1])
 
-    start = time.time()
     # # # Find the closest edges to origin and destination
     orig_edge = nearest_edges(graph, orig_yx[1], orig_yx[0]) 
     dest_edge = nearest_edges(graph, dest_yx[1], dest_yx[0])
-    end = time.time()
-
-    print(end-start)
-    print(orig_edge)
-    print(dest_edge)
     
-    # return orig_edge, dest_edge
+    return orig_edge, dest_edge
 
 # Calculate the total weight of the path, including partial edges
-def compute_route_weight(graph, route, weight, ls_orig, ls_dest, orig_edge, dest_edge):
+def _compute_route_weight(graph, route, weight, ls_orig, ls_dest, orig_edge, dest_edge):
     '''
     Compute the total weight of route and partial edges 
     '''
@@ -110,7 +94,7 @@ def compute_route_weight(graph, route, weight, ls_orig, ls_dest, orig_edge, dest
     return total_route_weight
 
 # My own implementation for shortest path
-def get_edge_geometry(G, edge):
+def _get_edge_geometry(G, edge):
     '''
     Retrieve the points that make up a given edge.
     
@@ -147,11 +131,9 @@ def get_edge_geometry(G, edge):
         (G.nodes[edge[1]]['x'], G.nodes[edge[1]]['y'])])
 
 # Single_shortest path (based on taxicab, but using a* algorithm)
-def _single_shortest_path(G, orig_yx, dest_yx, 
+def _single_shortest_path(G, orig_yx, dest_yx, orig_edge, dest_edge,
     method='dijkstra', 
     weight='length',
-    orig_edge=None, 
-    dest_edge=None,
     return_path=False):  
         
     # Check if on samen line, if so, use simplified calculation
@@ -182,8 +164,8 @@ def _single_shortest_path(G, orig_yx, dest_yx,
             raise ValueError('Method does not exist')
 
         p_o, p_d = Point(orig_yx[::-1]), Point(dest_yx[::-1])
-        orig_geo = get_edge_geometry(G, orig_edge)
-        dest_geo = get_edge_geometry(G, dest_edge)
+        orig_geo = _get_edge_geometry(G, orig_edge)
+        dest_geo = _get_edge_geometry(G, dest_edge)
 
         orig_clip = orig_geo.project(p_o, normalized=True)
         dest_clip = dest_geo.project(p_d, normalized=True)
@@ -215,12 +197,12 @@ def _single_shortest_path(G, orig_yx, dest_yx,
         # when routing across two or more edges
         if len(nx_route) >= 3:
             # check overlap with first route edge
-            route_orig_edge = get_edge_geometry(G, (nx_route[0], nx_route[1], 0))
+            route_orig_edge = _get_edge_geometry(G, (nx_route[0], nx_route[1], 0))
             if route_orig_edge.intersects(orig_partial_edge_1) and route_orig_edge.intersects(orig_partial_edge_2):
                 nx_route = nx_route[1:]
         
             # determine which origin partial edge to use
-            route_orig_edge = get_edge_geometry(G, (nx_route[0], nx_route[1], 0)) 
+            route_orig_edge = _get_edge_geometry(G, (nx_route[0], nx_route[1], 0)) 
             if route_orig_edge.intersects(orig_partial_edge_1):
                 orig_partial_edge = orig_partial_edge_1
             else:
@@ -229,12 +211,12 @@ def _single_shortest_path(G, orig_yx, dest_yx,
             ### resolve destination
 
             # check overlap with last route edge
-            route_dest_edge = get_edge_geometry(G, (nx_route[-2], nx_route[-1], 0))
+            route_dest_edge = _get_edge_geometry(G, (nx_route[-2], nx_route[-1], 0))
             if route_dest_edge.intersects(dest_partial_edge_1) and route_dest_edge.intersects(dest_partial_edge_2):
                 nx_route = nx_route[:-1]
 
             # determine which destination partial edge to use
-            route_dest_edge = get_edge_geometry(G, (nx_route[-2], nx_route[-1], 0)) 
+            route_dest_edge = _get_edge_geometry(G, (nx_route[-2], nx_route[-1], 0)) 
             if route_dest_edge.intersects(dest_partial_edge_1):
                 dest_partial_edge = dest_partial_edge_1
             else:
@@ -248,7 +230,7 @@ def _single_shortest_path(G, orig_yx, dest_yx,
         if len(dest_partial_edge.coords) <= 1:
             dest_partial_edge = []
 
-    route_weight = compute_route_weight(G, nx_route, weight, orig_partial_edge, dest_partial_edge, orig_edge, dest_edge)
+    route_weight = _compute_route_weight(G, nx_route, weight, orig_partial_edge, dest_partial_edge, orig_edge, dest_edge)
 
     # If the nodes do not have to be returned: replace route by None, so that
     # parallel computation does not have to store the route in memory every path
@@ -275,14 +257,22 @@ graph = ox.project_graph(graph, to_crs="EPSG:3857")
 orig = (51.99274, 4.35108)
 dest = (52.02184, 4.37690)
 
+start = time.time()
+orig_edge, dest_edge = find_nearest_edge(graph, orig, dest)
+end = time.time()
+print(end-start)
+
+start = time.time()
 # Returns the nodes of the graph, orig edge and dest edge
-# data = _single_shortest_path(graph, orig, dest, weight='travel_time', method = 'astar')
-data = find_nearest_edge(graph, orig, dest)
+data = _single_shortest_path(graph, orig, dest, orig_edge, dest_edge, weight='travel_time', method = 'astar')
+end = time.time()
+print(end-start)
 
 """
 To do:
     - Implement route_weight function \/
     - If nodes are not required, do not return them (better for parallel) \/
-    - Make different function for nearest edges orig and dest
+    - Make different function for nearest edges orig and dest \/
+    - Make transform work with lists
     - Implement multicore
 """
