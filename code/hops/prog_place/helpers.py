@@ -47,3 +47,9 @@ def matrix_mask(matrix, mask_values):
             out[i][j] = mask_values_int
     
     return out
+
+def vector3d_2pts(pt1, pt2):
+
+    out = r3d.Vector3d(abs(pt2.X - pt1.X), abs(pt2.Y - pt1.Y), abs(pt2.Z - pt1.Z))
+
+    return out

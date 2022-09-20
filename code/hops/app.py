@@ -45,7 +45,7 @@ def dividesite(site, road_lines_tree, sidewalk_lines_tree, grid_size):
         hs.HopsString("Module Mask", "M_M", "Package module mask"),
     ],
     outputs=[
-        hs.HopsLine("Points", "P", "Field of points", access=hs.HopsParamAccess.TREE),
+        hs.HopsSurface("Surface", "S", "Relocated surface"),
     ]
 )
 def placepackages(srfpts_tree, cost_function_tree, module_use, module_geometry, module_mask):
@@ -64,7 +64,7 @@ def placepackages(srfpts_tree, cost_function_tree, module_use, module_geometry, 
         hs.HopsString("Module Mask", "M_M", "Tree with each module mask", access=hs.HopsParamAccess.TREE),
     ],
     outputs=[
-        hs.HopsSurface("Points", "P", "Field of points"),
+        hs.HopsSurface("Surface", "S", "Field of points"),
     ]
 )
 def placemodules(srfpts_tree, cost_function_tree, module_use_tree, module_geometry, module_mask_tree):
