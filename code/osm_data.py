@@ -128,8 +128,8 @@ def get_osm_addr(query):
         node_tags_list.append(node.tags)
     nodes_frame = pd.DataFrame(node_tags_list)
     addr_frame = nodes_frame[['latitude', 'longitude', 'id', 'addr:housenumber', 'addr:street',]]
-    addr_frame.to_csv('addr_saved.csv')
-    print("OSM address data saved to addr_saved.csv")
+    addr_frame.to_csv('data/addr_saved.csv')
+    print("OSM address data saved to data/addr_saved.csv")
     return addr_frame
 
 def get_osm_building(query):
@@ -146,8 +146,8 @@ def get_osm_building(query):
         way_tags_list.append(way.tags)
     ways_frame = pd.DataFrame(way_tags_list)
     building_frame = ways_frame[['center_lat', 'center_lon', 'id']]
-    building_frame.to_csv('building_saved.csv')
-    print("OSM building data saved to building_saved.csv")
+    building_frame.to_csv('data/building_saved.csv')
+    print("OSM building data saved to data/building_saved.csv")
     return(building_frame)
 
 def compare_building_addr(building_frame:pd.DataFrame, addr_frame:pd.DataFrame):
@@ -160,7 +160,7 @@ def compare_building_addr(building_frame:pd.DataFrame, addr_frame:pd.DataFrame):
         index = closest_node(i, building_array)
         building_addr[index] += 1
         c += 1
-    np.savetxt("building_addr.csv", building_addr, delimiter=",")
+    np.savetxt("data/building_addr.csv", building_addr, delimiter=",")
 
 
 def closest_node(node, nodes):
@@ -204,10 +204,10 @@ def main():
     #building_query = get_building_query(user_input)
     
     #building_frame = get_osm_building(building_query)
-    building_frame = load_csv('building_saved.csv')
+    building_frame = load_csv('data/building_saved.csv')
 
     #addr_frame = get_osm_addr(addr_query)
-    addr_frame =  load_csv('addr_saved.csv')
+    addr_frame =  load_csv('data/addr_saved.csv')
 
     building_addr = compare_building_addr(building_frame, addr_frame)
 
