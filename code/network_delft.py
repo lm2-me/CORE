@@ -25,6 +25,13 @@ Decorators:
 
 Other functions:
     - main: calculate the shortest path
+
+TO DO:
+Manually implement shortest path over graph using
+the osmnx shortest path parallel computation method
+and the a* method of networkx.
+
+Also combine method with taxicab procedure
 """
 
 import osmnx as ox
@@ -87,7 +94,7 @@ class CityNetwork():
         self.graph = graph
 
     def project_graph(self):
-        self.graph = ox.project_graph(self.graph, to_crs="crs")
+        self.graph = ox.project_graph(self.graph, to_crs="EPSG:3857")
 
     # Create a dataframe for the edges    
     def convert_graph_edges_to_df(self):
@@ -132,9 +139,6 @@ class CityNetwork():
 
     """ Storing the graph as a pickle file avoids having to recalculate
     attributes such as speed, length etc. and is way faster
-
-    Args:
-        - name: name of the CityNetwork, string
     """
     def save_graph(self, name: str):        
         object_name = name
@@ -144,54 +148,10 @@ class CityNetwork():
         with open(path, 'wb') as file:
             pickle.dump(self, file, pickle.HIGHEST_PROTOCOL)
 
-    """ Calculate the shortest path between one or multiple points
-        Inputs can be lists of osmid's, single osmid's or coordinate_tuples
-
-        Options:
-            orig, dest = 78503718
-            orig, dest = [8392089, 3289023, 238979234]
-            Can also be one orig and list of dest
-            
-            orig = (52.048378, 4.2832923)
-
-        Based on input type, taxicab or osmnx is selected
-    """
     def shortest_paths(self, orig: int or list or tuple, dest: int or list or tuple, weight = 'travel_distance', from_coordinates = False, plot=False):
         print('Calculating paths...')
-        start = time.time()
-        
-        # If from osmids, not from coordinates
-        if not from_coordinates:
-            if type(orig) != type(dest):
-                if isinstance(orig, list):
-                    dest = [dest for _ in range(len(orig))]
-                else:
-                    orig = [orig for _ in range(len(dest))]
-            paths = ox.shortest_path(self.graph, orig, dest, weight=weight, cpus=None)
-        
-        # You are using coordinate tuples
-        else:
-            print('Taxicab initiated...')
-            paths = tc.distance.shortest_path(self.graph, orig, dest)
-        
-        end = time.time()
-        print('Finished calculating {} path(s) in {} seconds.'.format(len(orig) if isinstance(orig, list) else 1, round(end-start, 2))) 
+        pass
 
-        # Plot the figure using osmnx or taxicab
-        if plot and not from_coordinates:
-            print("Loading plot...")
-            if isinstance(orig, list) or isinstance(dest, list):
-                ox.plot_graph_routes(self.graph, paths, route_linewidth=self.route_linewidth,
-                    # WIP: Make this look nicer:
-                    figsize=self.figsize, bgcolor=self.bgcolor, edge_color=self.edge_color, node_color=self.node_color, node_size=self.node_size)
-            else:
-                ox.plot_graph_route(self.graph, paths, route_linewidth=self.route_linewidth,
-                    figsize=self.figsize, bgcolor=self.bgcolor, edge_color=self.edge_color, node_color=self.node_color, node_size=self.node_size)
-        elif plot:
-            tc.plot.plot_graph_route(self.graph, paths, route_linewidth=self.route_linewidth,
-                    figsize=self.figsize, bgcolor=self.bgcolor, edge_color=self.edge_color, node_color=self.node_color, node_size=self.node_size)
-        return paths
-    
     # Plot the map without any routes
     def plot(self):
         print("Loading plot...")
@@ -209,7 +169,7 @@ class CityNetwork():
         with open(path, 'rb') as file:
             graph = pickle.load(file)
         
-        print('Loaded {} to object'.format(object_name))
+        print('Loaded {} to object...'.format(object_name))
         
         return graph
 
@@ -228,41 +188,30 @@ def main():
     """
     Initialize network if not already saved as pickle file:
     """
-    # # Initialize CityNetwork object
-    # Delft = CityNetwork('Delft', [52.03, 51.96, 4.4, 4.3])
+    # # # Initialize CityNetwork object
+    Delft = CityNetwork('Delft', [52.03, 51.96, 4.4, 4.3])
     
-    # # Load osm from local or online file
-    # Delft.load_osm_graph('data/Delft.osm')
+    # # # Load osm from local or online file
+    Delft.load_osm_graph('data/Delft.osm')
     
-    # # Add speeds, lengths and distances to graph
-    # Delft.add_rel_attributes()
+    # # # Add speeds, lengths and distances to graph
+    Delft.add_rel_attributes()
 
-    # # Project graph                   # Not sure how this works!!!
-    # Delft.project_graph()
+    # # # Project graph
+    Delft.project_graph()
+    # # Delft.plot()
 
-    # # Calculate dataframes of nodes and edges
-    # Delft.convert_graph_edges_to_df()
-    # Delft.convert_graph_nodes_to_df()
+    # # # Calculate dataframes of nodes and edges
+    Delft.convert_graph_edges_to_df()
+    Delft.convert_graph_nodes_to_df()
 
     # # Save Pickle file
-    # Delft.save_graph('Delft')
+    Delft.save_graph('Delft')
 
-    """
-    Load network from pickle file
-    """
-    Delft = CityNetwork.load_graph('Delft')
-
-    # Pick a random origin
-    orig = Delft.get_node_osmids()[945]
-    # orig = (51.99274, 4.35108)
-
-    # Pick a random range of destinations
-    dest = Delft.get_node_osmids()[0:100]
-    # dest = (52.02184, 4.37690)
-
-    # Make sure you set from_coordinates to True when using tuple coordinates
-    distance = Delft.shortest_paths(orig, dest, from_coordinates=False, plot=True)[0]
-    print('Distance of shortest path is {}m'.format(round(distance, 1)))
+    # """
+    # Load network from pickle file
+    # """
+    # Delft = CityNetwork.load_graph('Delft')
 
 if __name__ == '__main__':
     main()
