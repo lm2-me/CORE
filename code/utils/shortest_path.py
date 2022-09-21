@@ -166,7 +166,8 @@ def _get_edge_geometry(G, edge):
 def _single_shortest_path(G, orig_yx, dest_yx, orig_edge, dest_edge,
     method='dijkstra', 
     weight='length',
-    return_path=False):  
+    return_path=False):
+
     # Check if on samen line, if so, use simplified calculation
     if orig_edge == dest_edge:
         # Revert x and y coordinates        
@@ -184,7 +185,6 @@ def _single_shortest_path(G, orig_yx, dest_yx, orig_edge, dest_edge,
         dest_partial_edge = []
         nx_route = []
     else:
-        print('yes')
         if method == 'astar':
             nx_route = nx.astar_path(G, orig_edge[0], dest_edge[0], weight=weight)
         elif method == 'bellman-ford':

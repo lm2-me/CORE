@@ -1,8 +1,14 @@
 from network_delft import CityNetwork, timer_decorator
 from utils.shortest_path import transform_coordinates, find_nearest_edge, multicore_shortest_path, _single_shortest_path
+import utils.taxicab_source as tcs
 import osmnx as ox
 import taxicab as tc
 import matplotlib.pyplot as plt
+
+'''
+This file is an example of how to use the 
+Delft_network script and the shortest_path.
+'''
 
 def plot(graph, route, orig, dest, route_color='grey'):
     fig, ax = tc.plot.plot_graph_route(
@@ -63,24 +69,25 @@ def main():
     
     # Find the nearest edges between the graph of Delft and origin and destination
     print('Finding origin and destination edges...')
-    orig_edge, dest_edge = find_nearest_edge(graph, orig_yx_transf, dest_yx_transf)
+    #orig_edge, dest_edge = find_nearest_edge(graph, orig_yx_transf, dest_yx_transf)
+    orig_edge, dest_edge = ((1448535927, 1371031575, 0), (6883754839, 6883754848, 0))
 
-    path_tc = tc.shortest_path(graph, orig_yx_transf, dest_yx_transf, orig_edge, dest_edge)
-    path_ssp_dist = _single_shortest_path(graph, orig, dest, orig_edge, dest_edge, weight='length', method = 'dijkstra', return_path=True)
-    #path_ssp_time = _single_shortest_path(graph, orig, dest, orig_edge, dest_edge, weight='travel_time', method = 'dijkstra', return_path=True)
-    #path_msp = multicore_shortest_path(graph, [orig], [dest], [orig_edge], [dest_edge], weight='travel_time', method = 'dijkstra', return_path=True, cpus=1)
+    # COMPARISON OF DIFFERENT SHORTEST PATH METHODS
+    #path_tc = tcs.shortest_path(graph, orig_yx_transf, dest_yx_transf, orig_edge, dest_edge)
+    #path_ssp_dist = _single_shortest_path(graph, orig_yx_transf, dest_yx_transf, orig_edge, dest_edge, weight='length', method = 'dijkstra', return_path=True)
+    #path_ssp_time = _single_shortest_path(graph, orig_yx_transf, dest_yx_transf, orig_edge, dest_edge, weight='travel_time', method = 'dijkstra', return_path=True)
+    path_msp = multicore_shortest_path(graph, [orig_yx_transf] * 5000, [dest_yx_transf] * 5000, [orig_edge] * 5000, [dest_edge] * 5000, weight='length', method = 'dijkstra', return_path=False, cpus=10)
+    # 5000 shortest paths in 108.51s, with path return
 
-    print(path_tc[2].length)
-    print(path_ssp_dist[2].length)
-
-    # plot(graph, path_tc, orig_yx_transf, dest_yx_transf, route_color='yellow')
-    # plot(graph, path_ssp_dist, orig_yx_transf, dest_yx_transf, route_color='purple')
+    # PLOT RESULTS
+    #plot(graph, path_tc, orig_yx_transf, dest_yx_transf, route_color='yellow')
+    #plot(graph, path_ssp_dist, orig_yx_transf, dest_yx_transf, route_color='purple')
     # #plot(graph, path_ssp_time, orig_yx_transf, dest_yx_transf, route_color='red')
-    # plt.legend()
-    # plt.show()
+    #plt.legend()
+    #plt.show()
    
     # Print the amount of paths calculated
-    #print(f"Computed {len(result)} paths in {round(passed_time, 2)}s")
+    print(f"Computed {len(path_msp)} paths in xs")
 
 if __name__ == '__main__':
     main()
