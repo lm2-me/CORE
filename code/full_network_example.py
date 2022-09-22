@@ -27,15 +27,12 @@ def plot(graph, route, orig, dest, route_color='grey'):
         color='red', marker='x', s=100, label='dest-point')
 
 @timer_decorator
-def main():
-    
-    # Initialize network if not already saved as pickle file:
-    
+def main():   
     # Initialize CityNetwork object
-    Delft = CityNetwork('Delft_bike', [52.03, 51.96, 4.4, 4.3], 'bike')
+    Delft = CityNetwork('Delft_bike', [52.03, 51.96, 4.4, 4.3], 'walk')
     
     # # # Load osm from local or online file
-    Delft.load_osm_graph('data/Delft_bike.osm')
+    Delft.load_osm_graph('data/Delft_walk.osm')
     
     # # # Add speeds, lengths and distances to graph
     Delft.add_rel_attributes()
@@ -48,9 +45,16 @@ def main():
     Delft.convert_graph_edges_to_df()
     Delft.convert_graph_nodes_to_df()
 
+    '''
+    Before continuing, you will have to decide what speeds
+    you are actually using on your paths. OSM assumes the
+    fastest allowed speed, e.g. 50 km/h on a bike...
+    '''
+
     # # Save Pickle file
-    Delft.save_graph('Delft_bike')
-    
+    Delft.save_graph('Delft_walk')
+    print('------------------------------------')
+
     """
     Load network from pickle file
     """
