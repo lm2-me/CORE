@@ -1,11 +1,9 @@
-import osmnx as ox
 import taxicab as tc
 import matplotlib.pyplot as plt
 
 from network_delft import CityNetwork, timer_decorator
-from utils.multicore_shortest_path import transform_coordinates, find_nearest_edge, multicore_shortest_path, _single_shortest_path
+from utils.multicore_shortest_path import transform_coordinates, multicore_shortest_path
 from utils.multicore_nearest_edges import multicore_nearest_edge
-import utils.taxicab_source as tcs
 
 '''
 ImportError? Move this file to code folder TEMPORATILY
@@ -31,17 +29,17 @@ def main():
     # Initialize CityNetwork object
     Delft = CityNetwork('Delft_bike', [52.03, 51.96, 4.4, 4.3], 'walk')
     
-    # # # Load osm from local or online file
+    # Load osm from local or online file
     Delft.load_osm_graph('data/Delft_walk.osm')
     
-    # # # Add speeds, lengths and distances to graph
+    # Add speeds, lengths and distances to graph
     Delft.add_rel_attributes()
 
-    # # # Project graph
+    # Project graph
     Delft.project_graph()
     # Delft.plot()
 
-    # # # Calculate dataframes of nodes and edges
+    # Calculate dataframes of nodes and edges
     Delft.convert_graph_edges_to_df()
     Delft.convert_graph_nodes_to_df()
 
