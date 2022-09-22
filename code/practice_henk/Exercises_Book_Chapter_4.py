@@ -163,8 +163,95 @@
 # be that many hours into the future, printing am or pm as appropriate. An example is shown
 # below.
 
-time = int(input("Enter the number of hours between 1 and 12: "))
-am_pm = str.lower(input("AM or PM?"))
-hours_ahead = int(input("Enter the number of hours ahead: "))
-if am_pm == "am":
+# time = int(input("Enter the number of hours between 1 and 12: "))
+# am_pm = str.lower(input("AM or PM?"))
+# hours_ahead = int(input("Enter the number of hours ahead: "))
+
+# if time + hours_ahead > 24 and time + hours_ahead % 24 > 12:
+#     print("New hour:", ((time + hours_ahead) % 24) - 12, "o'clock ",(time + hours_ahead) // 24, "Days later")
+# elif time + hours_ahead > 24:
+#     print("New hour:", ((time + hours_ahead) % 24), "o'clock ",(time + hours_ahead) // 24, "Days later")
+
+# elif hours_ahead > 12:
+#     print("New hour:", (time + hours_ahead)-12, "o'clock")
+# elif hours_ahead < 12:
+#     print("New hour:", (time + hours_ahead), "o'clock")
+
+# Exercise 12
+
+# A jar of Halloween candy contains an unknown amount of candy and if you can guess exactly
+# how much candy is in the bowl, then you win all the candy. You ask the person in charge the
+# following: If the candy is divided evenly among 5 people, how many pieces would be left
+# over? The answer is 2 pieces. You then ask about dividing the candy evenly among 6 people,
+# and the amount left over is 3 pieces. Finally, you ask about dividing the candy evenly among
+# 7 people, and the amount left over is 2 pieces. By looking at the bowl, you can tell that there
+# are less than 200 pieces. Write a program to determine how many pieces are in the bowl.
+
+# number_divided_5 = int(input("If the candy is divided evenly among 5 people, how many pieces would be left over? "))
+# number_divided_6 = int(input("If the candy is divided evenly among 6 people, how many pieces would be left over? "))
+# number_divided_7 = int(input("If the candy is divided evenly among 7 people, how many pieces would be left over? "))
+
+# if number_divided_5 == 2 and number_divided_6 == 3 and number_divided_7 == 2:
+#     print ("There are less than 200 pieces of candy in the bowl!")
+# else:
+#     print("There are more than 200 pieces of candy in the bowl!")
+
+# Exercise 13
+
+# Write a program that lets the user play Rock-Paper-Scissors against the computer. There
+# should be five rounds, and after those five rounds, your program should print out who won
+# and lost or that there is a tie.
+
+from multiprocessing import RLock
+from random import randint
+turns = 0
+draws = 0
+player_wins = 0
+computer_wins = 0
+print("Rocks, paper, scissor")
+for turns in range (1,6):
+    print("Turn number:", turns)
+    player = str.lower(input("Enter rock, paper or scissor: "))
+    computer = randint(1,3)
+    if computer == 1:
+        print("Computer entered rock")
+    elif computer == 2:
+        print("Computer entered paper")
+    else:
+        print("computer entered scissor")
     
+    if player == "rock" and computer == 1:
+        print("It's a draw!")
+        draws == draws +1
+
+    elif player == "rock" and computer == 2:
+        print("The computer wins!")
+        computer_wins = computer_wins + 1
+    elif player == "rock" and computer == 3:
+        print("You win!")
+        player_wins = player_wins +1
+    elif player =="paper" and computer == 1:
+        print("You win!")
+        player_wins = player_wins +1
+    elif player == "paper" and computer == 2:
+        print("It's a draw!")
+        draws == draws +1
+    elif player == "paper" and computer == 3:
+        print("The computer wins!")
+        computer_wins = computer_wins + 1
+    elif player == "scissor" and computer == 1:
+        print("You win!")
+        player_wins = player_wins +1
+    elif player == "rock" and computer == 2:
+        print("The computer wins!")
+        computer_wins = computer_wins + 1
+    else:
+     print("It's a draw!")
+     draws == draws +1
+print ("Player wins: ", player_wins, "Computer wins: ", computer_wins, "Number of draws: ", draws)
+if draws == 5:
+    print ("Nobody won!")
+if player_wins > computer_wins:
+    print("You have won!")
+else:
+    print("The computer has won!")
