@@ -39,10 +39,6 @@ import taxicab as tc
 import os.path
 import pickle
 import time
-import warnings
-
-# Ignore the userwarning from taxicab temporarily
-warnings.simplefilter("ignore")
 
 class CityNetwork():
     # Plot settings
@@ -53,9 +49,10 @@ class CityNetwork():
     route_linewidth = 1
     node_size=3
 
-    def __init__(self, name: str, coordinates: list, graph = None, graph_edges_df = None, graph_nodes_df = None):
+    def __init__(self, name: str, coordinates: list, transport_type, graph = None, graph_edges_df = None, graph_nodes_df = None):
         self.name = name
         self.coordinates = coordinates
+        self.transport_type = transport_type
         self.graph = graph
         self.graph_edges_df = graph_edges_df
         self.graph_nodes_df = graph_nodes_df
@@ -75,9 +72,9 @@ class CityNetwork():
             # Retrieve graph online and save local
             print("Retrieving online data...")
             if query:
-                graph = ox.graph.graph_from_place(query, network_type='drive')
+                graph = ox.graph.graph_from_place(query, network_type=self.transport_type)
             else:
-                graph = ox.graph_from_bbox(*self.coordinates, simplify=True, retain_all=False, network_type='all', clean_periphery=True)
+                graph = ox.graph_from_bbox(*self.coordinates, simplify=True, retain_all=False, network_type=self.transport_type, clean_periphery=True)
             
             print("Saving...")
             ox.save_graphml(graph, filepath=filepath)
@@ -185,33 +182,33 @@ def timer_decorator(func):
 
 @timer_decorator
 def main():
-    """
-    Initialize network if not already saved as pickle file:
-    """
-    # # # Initialize CityNetwork object
-    Delft = CityNetwork('Delft', [52.03, 51.96, 4.4, 4.3])
-    
-    # # # Load osm from local or online file
-    Delft.load_osm_graph('data/Delft.osm')
-    
-    # # # Add speeds, lengths and distances to graph
-    Delft.add_rel_attributes()
-
-    # # # Project graph
-    Delft.project_graph()
-    # # Delft.plot()
-
-    # # # Calculate dataframes of nodes and edges
-    Delft.convert_graph_edges_to_df()
-    Delft.convert_graph_nodes_to_df()
-
-    # # Save Pickle file
-    Delft.save_graph('Delft')
-
     # """
-    # Load network from pickle file
+    # Initialize network if not already saved as pickle file:
     # """
-    # Delft = CityNetwork.load_graph('Delft')
+    # # # # Initialize CityNetwork object
+    # Delft = CityNetwork('Delft', [52.03, 51.96, 4.4, 4.3])
+    
+    # # # # Load osm from local or online file
+    # Delft.load_osm_graph('data/Delft.osm')
+    
+    # # # # Add speeds, lengths and distances to graph
+    # Delft.add_rel_attributes()
+
+    # # # # Project graph
+    # Delft.project_graph()
+    # # # Delft.plot()
+
+    # # # # Calculate dataframes of nodes and edges
+    # Delft.convert_graph_edges_to_df()
+    # Delft.convert_graph_nodes_to_df()
+
+    # # # Save Pickle file
+    # Delft.save_graph('Delft')
+
+    """
+    Load network from pickle file
+    """
+    Delft = CityNetwork.load_graph('Delft')
 
 if __name__ == '__main__':
     main()
