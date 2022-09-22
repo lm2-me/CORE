@@ -240,9 +240,9 @@ for turns in range (1,6):
         print("The computer wins!")
         computer_wins = computer_wins + 1
     elif player == "scissor" and computer == 1:
-        print("You win!")
-        player_wins = player_wins +1
-    elif player == "rock" and computer == 2:
+        print("The computer wins!")
+        computer_wins = computer_wins +1
+    elif player == "scissor" and computer == 2:
         print("The computer wins!")
         computer_wins = computer_wins + 1
     else:
