@@ -2,8 +2,7 @@ import taxicab as tc
 import matplotlib.pyplot as plt
 
 from network_delft import CityNetwork, timer_decorator
-from utils.multicore_shortest_path import transform_coordinates, multicore_shortest_path
-from utils.multicore_nearest_edges import multicore_nearest_edge
+from utils.multicore_shortest_path import transform_coordinates
 
 '''
 ImportError? Move this file to code folder TEMPORATILY
