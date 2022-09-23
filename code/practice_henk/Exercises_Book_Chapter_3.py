@@ -207,12 +207,42 @@
 # Write a program that asks the user to enter a year and prints out the date of Easter in that
 # year.
 
-Y = int(input("Enter a year to calculate Easter: "))
-C = Y // 100
-m = ((15 + C - (C/4)- (8*C + 13)/25)) % 30
-n = (4 + C -(C/4)) % 7
-a = Y % 4
-b = Y % 7
-c = Y % 19
-d = (19 * c + m) % 30
-e = (2 * a + 4 * b + 6 * d + n) % 7
+# Y = int(input("Enter a year to calculate Easter: "))
+# C = Y // 100
+# m = ((15 + C - (C/4)- (8*C + 13)/25)) % 30
+# n = (4 + C -(C/4)) % 7
+# a = Y % 4
+# b = Y % 7
+# c = Y % 19
+# d = (19 * c + m) % 30
+# e = (2 * a + 4 * b + 6 * d + n) % 7
+
+# Exercise 17
+
+# A year is a leap year if it is divisible by 4, except that years divisible by 100 are not leap years
+# unless they are also divisible by 400. Ask the user to enter a year, and, using the // operator,
+# determine how many leap years there have been between 1600 and that year.
+
+# counter = 0
+# year = int(input("Enter a year: "))
+# for i in range(1600, year, 1):
+#    if i % 4 == 0:
+#         counter = counter + 1
+#    if i % 100 == 0 and i % 400 != 0:
+#         counter = counter -1
+# print(counter, " is the number of lep years between ", 1600, " and ", year)
+
+# Exercise 18
+
+# Write a program that given an amount of change less than $1.00 will print out exactly how
+# many quarters, dimes, nickels, and pennies will be needed to efficiently make that change.
+# [Hint: the // operator may be useful.]
+
+change = float(input("Enter an amount less than $1.-: $ "))
+quarter = 0.25
+dime = 0.10
+nickel = 0.05
+penny = 0.01
+print(change // quarter, " Quarters", "equals ", (change // quarter) * 0.25)
+rest_1 = round (float(change - (change // quarter) * 0.25),3)
+print((rest_1)) 
