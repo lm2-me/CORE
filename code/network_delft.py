@@ -40,6 +40,7 @@ Also combine method with taxicab procedure
 """
 
 import osmnx as ox
+import networkx as nx
 import os.path
 import pickle
 import time
@@ -76,6 +77,11 @@ class CityNetwork():
     # Load an osm graph from online or local saved file
     # Query indicates geocodable location such as 'Delft'
     def load_osm_graph(self, filepath: str, query=False):
+        # If Electric personal vehicle: use bike data
+        transport_type = self.transport_type
+        if transport_type == 'epv':
+            transport_type = 'bike'
+        
         if os.path.isfile(filepath):
             # Load a graph from drive
             print("Loading...")
@@ -85,9 +91,9 @@ class CityNetwork():
             # Retrieve graph online and save local
             print("Retrieving online data...")
             if query:
-                graph = ox.graph.graph_from_place(query, network_type=self.transport_type)
+                graph = ox.graph.graph_from_place(query, network_type=transport_type)
             else:
-                graph = ox.graph_from_bbox(*self.coordinates, simplify=True, retain_all=False, network_type=self.transport_type, clean_periphery=True)
+                graph = ox.graph_from_bbox(*self.coordinates, simplify=True, retain_all=False, network_type=transport_type, clean_periphery=True)
             
             print("Saving...")
             ox.save_graphml(graph, filepath=filepath)
@@ -96,9 +102,18 @@ class CityNetwork():
         print("Finished loading")
 
     # Add speed, length and travel time to graph
-    def add_rel_attributes(self):
-        graph = ox.speed.add_edge_speeds(self.graph)
-        graph = ox.distance.add_edge_lengths(graph)
+    def add_rel_attributes(self, overwrite_walk=None, overwrite_bike=None, overwrite_epv=False):
+
+        graph = ox.distance.add_edge_lengths(self.graph)
+        graph = ox.speed.add_edge_speeds(graph)
+
+        if self.transport_type == 'walk' and overwrite_walk != None: 
+            nx.set_edge_attributes(graph, values=overwrite_walk, name="speed_kph")
+        elif self.transport_type == 'bike' and overwrite_bike != None:
+            nx.set_edge_attributes(graph, values=overwrite_bike, name="speed_kph")
+        elif self.transport_type == 'epv' and overwrite_epv != None:
+            nx.set_edge_attributes(graph, values=overwrite_epv, name="speed_kph")
+
         graph = ox.speed.add_edge_travel_times(graph)
 
         self.graph = graph

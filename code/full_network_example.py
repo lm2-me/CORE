@@ -1,8 +1,11 @@
-import taxicab as tc
 import matplotlib.pyplot as plt
 
 from network_delft import CityNetwork, timer_decorator
 from utils.multicore_shortest_path import transform_coordinates
+
+import time
+import pandas as pd
+pd.set_option('display.max_rows', None)
 
 '''
 ImportError? Move this file to code folder TEMPORATILY
@@ -25,38 +28,32 @@ def main():
     ''' --- GENERATE NETWORK ---
     Generate a new network using the functions in the CityNetwork class. If a network already has been generated and stored in the data folder, skip this part and continue with PREPARE NETWORK. '''
 
-    # # Initialize CityNetwork object
-    # Delft = CityNetwork('Delft_bike', [52.03, 51.96, 4.4, 4.3], 'bike')
+    # Initialize CityNetwork object
+    Delft = CityNetwork('Delft_bike', [52.03, 51.96, 4.4, 4.3], 'bike')
     
-    # # Load osm from local or online file
-    # Delft.load_osm_graph('data/Delft_bike.osm')
+    # Load osm from local or online file
+    Delft.load_osm_graph('data/Delft_bike.osm')
     
-    # # Add speeds, lengths and distances to graph
-    # Delft.add_rel_attributes()
+    # Add speeds, lengths and distances to graph
+    # Overwrite speed by using overwrite_bike=16
+    # Further types available: overwrite_walk and overwrite_epv
+    Delft.add_rel_attributes(overwrite_bike=16)
 
-    # # Project graph
-    # Delft.project_graph()
-    # # Delft.plot()
+    # Project graph
+    Delft.project_graph()
+    # Delft.plot()
 
-    # # Calculate dataframes of nodes and edges
-    # Delft.convert_graph_edges_to_df()
-    # Delft.convert_graph_nodes_to_df()
+    # Calculate dataframes of nodes and edges
+    Delft.convert_graph_edges_to_df()
+    Delft.convert_graph_nodes_to_df()
 
-    # '''
-    # Before continuing, you will have to decide what speeds
-    # you are actually using on your paths. OSM assumes the
-    # fastest allowed speed, e.g. 50 km/h on a bike...
-    # '''
-
-    # # # Save Pickle file
-    # Delft.save_graph('Delft_bike')
-    # print('------------------------------------')
+    # # Save Pickle file
+    Delft.save_graph('Delft_bike')
+    print('------------------------------------')
 
 
     ''' --- PREPARE NETWORK ---
     Load the network from .pkl file. Transform the origin and destination to the unprojected space.'''
-    _multiply = 100
-
     # Load the Delft CityNetwork class object
     Delft = CityNetwork.load_graph('Delft_bike')
 
@@ -116,13 +113,20 @@ def main():
     orig_edge = edges[:len(edges)//2]
     dest_edge = edges[len(edges)//2:]
 
+
     ''' --- MULTICORE SHORTEST PATH COMPUTATION ---
     Compute the shortest path between origin and destination, taking in account the position of the start and end in relation to the nearest edges. Input of orig, dest, orig_edge and dest_edge will interally be converted to a list, if inputed as tuples. '''
     print('------------------------------------')
-    paths = Delft.shortest_paths(orig_yx_transf, dest_yx_transf, orig_edge, dest_edge, weight='travel_time', method='dijkstra', return_path=True, cpus=1, _multiply=1)
+    start = time.time()
+    paths = Delft.shortest_paths(orig_yx_transf, dest_yx_transf, orig_edge, dest_edge, weight='travel_time', method='dijkstra', return_path=True, cpus=2)
+    end = time.time()
+    print(f"Finished solving {len(paths)} paths in {round(end-start)}s.")
+    # print(paths)
+
 
     '''' --- PRINT RESULTS DATAFRAME---
-    Although the paths have been found, you may want to see the results in a dataframe.'''
+    Although the paths have been found, you may want to see the results in a dataframe.
+    Make sure the shortest path algorithm is using input return_path=True'''
     print('------------------------------------')
 
     # Select a specific path:
@@ -138,12 +142,15 @@ def main():
     df = Delft.graph_edges_df.loc[edges, ['name', 'length', 'speed_kph', 'travel_time']]
     print(df)
     
+
     ''' --- PLOT RESULTS ---
     Plot one or multiple paths using the CityNetwork plot functions. Advantage of this function is the ability to print multiple routes instead of one, including the linestrings calculated using the taxicab method.
     
     If you need different color and size settings for the plot, change them in the CityNetwork class (on top of class code)'''
     fig, ax = Delft.plot(paths, orig_yx_transf, dest_yx_transf, save=True)
     plt.show()
+
+    return
 
 if __name__ == '__main__':
     main()
