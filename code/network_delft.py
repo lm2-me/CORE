@@ -44,11 +44,13 @@ import networkx as nx
 import os.path
 import pickle
 import time
+import overpy
 
 from shapely.geometry import LineString
 
 from utils.multicore_shortest_path import multicore_shortest_path
 from utils.multicore_nearest_edges import multicore_nearest_edge
+from utils.osm_data_request import get_addr_query, get_building_query, get_osm_addr, get_osm_building, compare_building_addr, load_csv
 
 class CityNetwork():
     # Plot settings
@@ -62,14 +64,17 @@ class CityNetwork():
     route_width = 3
     cross_color = 'red'
 
-    def __init__(self, name: str, coordinates: list, transport_type, graph = None, graph_edges_df = None, graph_nodes_df = None):
+    def __init__(self, name: str, coordinates: list, transport_type):
         self.name = name
         self.coordinates = coordinates
         self.transport_type = transport_type
-        self.graph = graph
-        self.graph_edges_df = graph_edges_df
-        self.graph_nodes_df = graph_nodes_df
+        self.graph = None
+        self.graph_edges_df = None
+        self.graph_nodes_df = None
+        self.building_addr_df = None
+        self.url = [None, "https://maps.mail.ru/osm/tools/overpass/api/interpreter", "https://overpass.kumi.systems/api/interpreter", "https://lz4.overpass-api.de/api/interpreter"]
         self.ne = None
+
 
     def __repr__(self):
         return "<CityNetwork object of {}>".format(self.name)
@@ -84,7 +89,7 @@ class CityNetwork():
         
         if os.path.isfile(filepath):
             # Load a graph from drive
-            print("Loading...")
+            print("Loading street network...")
             graph = ox.load_graphml(filepath=filepath)
 
         else:
@@ -100,6 +105,50 @@ class CityNetwork():
         
         self.graph = graph
         print("Finished loading")
+
+    def load_building_addr(self, building_addr_path: str, building_path: str, adress_path: str):
+        print("Loading buildings...")
+
+        if not (os.path.isfile(building_addr_path)):
+            if not (os.path.isfile(adress_path) and os.path.isfile(building_path)):
+                building_query = get_building_query(([''], self.coordinates))
+                addr_query = get_addr_query(([''], self.coordinates))
+
+                error = 0
+                for i in self.url:
+                    try:
+                        building_frame = get_osm_building(building_query, url=i)
+                        building_frame.to_csv(building_path)
+                        print(f"OSM building data saved to {building_path}")
+
+                        addr_frame = get_osm_addr(addr_query, url=i)
+                        addr_frame.to_csv(adress_path)
+                        print(f"OSM address data saved to {adress_path}")
+                        break
+                    except overpy.exception.OverpassGatewayTimeout as exc:
+                        print(exc)
+                        error += 1
+                        print("Overpass Server Load too high for standard servers, retrying with different url")
+                        pass
+                    except TypeError as exc:
+                        print(exc)
+                        error += 1
+                        print("Trying non standard server did not return a valid result, retrying with different server")
+                        pass
+                
+                if error == len(self.url):
+                    print("The request is currently unable to gather Overpass data, please retry manually in 30 seconds")
+            
+            # Load the building and adress data from csv
+            addr_frame =  load_csv(adress_path)
+            building_frame = load_csv(building_path)
+
+            building_addr_df = compare_building_addr(building_frame, addr_frame)
+        else:
+            building_addr_df = load_csv(building_addr_path)
+
+        # Save to CityNetwork object
+        self.building_addr_df = building_addr_df
 
     # Add speed, length and travel time to graph
     def add_rel_attributes(self, overwrite_walk=None, overwrite_bike=None, overwrite_epv=False):
