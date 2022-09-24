@@ -27,6 +27,11 @@ def tree_to_matrix(tree: Dict[str, List[str]]):
     for _,b in tree_to_list:
         out.append(b)
     return out
+
+def tree_to_list(tree: Dict[str, List[str]]):
+    tree_to_list = [(int(k[1:-1]),v) for k,v in tree.items()]
+    tree_to_list.sort()
+    return [x[1] for x in tree_to_list]
     
 def matrix_str2floats(matrix: List[List[str]]):
     out = copy.deepcopy(matrix)

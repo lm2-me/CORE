@@ -69,6 +69,9 @@ def place_packages(srfpts_tree, cost_function_tree, module_use, module_geometry:
     out_cost_function_matrix = copy.deepcopy(cost_function_matrix)
 
     ### generate array of lables for each point
+    ### s - site
+    ### b - boundary
+    ### i - interior
     lable_array_np = np.full_like(srfpts_matrix, 's', str)
 
     ### convert module cost function information from strings to np array 
@@ -158,11 +161,38 @@ def place_packages(srfpts_tree, cost_function_tree, module_use, module_geometry:
 
     return module_geometry, h.list_to_tree(h.matrix_floats2str(out_cost_function_matrix)), module_edge, h.list_to_tree(lable_array)
 
-def place_modules(srfpts_tree, cost_function_tree, lable_array, module_use_tree, module_geometry, module_mask_tree):
+def place_modules(srfpts_tree, cost_function_tree, lable_array, module_use_tree, module_geometry_list, module_mask_tree):
     ### convert cost function and srf points information from gh trees to np array
     srfpts_matrix = np.array(h.tree_to_matrix(srfpts_tree))
     grid_size = abs(srfpts_matrix[0,0].X - srfpts_matrix[0,1].X)
+    module_mask_matrix = h.tree_to_matrix(module_mask_tree)
+    print(module_geometry_list)
+
+    ### NOT WORKING
     cost_function_matrix = h.matrix_str2floats(h.tree_to_matrix(cost_function_tree))
-    lable_array_matrix = h.tree_to_matrix(lable_array)
-    
-    return 1
+    out_cost_function_matrix = np.array(copy.deepcopy(cost_function_matrix))
+    lable_array_matrix = np.array(h.tree_to_matrix(lable_array))
+
+    for i, row in enumerate(lable_array_matrix):
+        for j, lable in enumerate(row):
+            if lable == 's' or lable == 'i':
+                out_cost_function_matrix[i][j][0] = str(m.inf)
+                out_cost_function_matrix[i][j][1] = str(m.inf)
+
+    ### convert module cost function information from strings to np array 
+    module_mask_np = []
+
+    ##EROR ON SPLIT
+    for i in module_mask_matrix:
+        module_mask_np.append(np.array([int(v) for v in i[0].split(',')]))
+
+    ### mask cost function with module parameters
+    module_masked_cost = []
+    for i, row in enumerate(module_mask_matrix):
+        module_masked_cost.append(np.dot(np.array(cost_function_matrix), module_mask_np[i]))
+
+    print(module_masked_cost)
+    for geo in module_geometry_list:
+        print('test')
+
+    return h.list_to_tree(h.matrix_floats2str(out_cost_function_matrix.tolist()))

@@ -64,15 +64,15 @@ def placepackages(srfpts_tree, cost_function_tree, module_use, module_geometry, 
         hs.HopsString("Cost", "$", "Value function results for each point", access=hs.HopsParamAccess.TREE),
         hs.HopsString("Lables", "L", "Lables for each point", access=hs.HopsParamAccess.TREE),
         hs.HopsString("Module Use", "M_U", "Tree with each module use info", access=hs.HopsParamAccess.TREE),
-        hs.HopsSurface("Module Geometry", "M_G", "Module geometry info"),
+        hs.HopsSurface("Module Geometry (as flattened list)", "M_G", "Module geometry info", access=hs.HopsParamAccess.LIST),
         hs.HopsString("Module Mask", "M_M", "Tree with each module mask", access=hs.HopsParamAccess.TREE),
     ],
     outputs=[
-        hs.HopsSurface("Surface", "S", "Field of points"),
+        hs.HopsString("Lables", "L", "Lables for each point", access=hs.HopsParamAccess.TREE),
     ]
 )
-def placemodules(srfpts_tree, cost_function_tree, lable_array, module_use_tree, module_geometry, module_mask_tree):
-    return siteprocessing.place_modules(srfpts_tree, cost_function_tree, lable_array, module_use_tree, module_geometry, module_mask_tree)
+def placemodules(srfpts_tree, cost_function_tree, lable_array, module_use_tree, module_geometry_list, module_mask_tree):
+    return siteprocessing.place_modules(srfpts_tree, cost_function_tree, lable_array, module_use_tree, module_geometry_list, module_mask_tree)
 
 ### END COMPONENT REGISTRATION
 
