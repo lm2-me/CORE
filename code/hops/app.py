@@ -27,6 +27,7 @@ hops = hs.Hops(app)
     outputs=[
         hs.HopsPoint("Points", "P", "Field of points", access=hs.HopsParamAccess.TREE),
         hs.HopsString("Cost", "$", "Value function results for each point", access=hs.HopsParamAccess.TREE),
+        hs.HopsString("Lables", "L", "Lables for each point", access=hs.HopsParamAccess.TREE),
     ]
 )
 def dividesite(site, road_lines_tree, sidewalk_lines_tree, grid_size):
@@ -40,6 +41,7 @@ def dividesite(site, road_lines_tree, sidewalk_lines_tree, grid_size):
     inputs=[
         hs.HopsPoint("Points", "P", "Field of points", access=hs.HopsParamAccess.TREE),
         hs.HopsString("Cost", "$", "Value function results for each point", access=hs.HopsParamAccess.TREE),
+        hs.HopsString("Lables", "L", "Lables for each point", access=hs.HopsParamAccess.TREE),
         hs.HopsString("Module Use", "M_U", "Package module use info"),
         hs.HopsSurface("Module Geometry", "M_G", "Package module geometry info"),
         hs.HopsString("Module Mask", "M_M", "Package module mask"),
@@ -51,8 +53,8 @@ def dividesite(site, road_lines_tree, sidewalk_lines_tree, grid_size):
         hs.HopsString("Lables", "L", "Lables for each point", access=hs.HopsParamAccess.TREE),
     ]
 )
-def placepackages(srfpts_tree, cost_function_tree, module_use, module_geometry, module_mask):
-    return siteprocessing.place_packages(srfpts_tree, cost_function_tree, module_use, module_geometry, module_mask)
+def placepackages(srfpts_tree, cost_function_tree, lables_tree, module_use, module_geometry, module_mask):
+    return siteprocessing.place_packages(srfpts_tree, cost_function_tree, lables_tree, module_use, module_geometry, module_mask)
 
 @hops.component(
     "/placemodules",
@@ -68,6 +70,9 @@ def placepackages(srfpts_tree, cost_function_tree, module_use, module_geometry, 
         hs.HopsString("Module Mask", "M_M", "Tree with each module mask", access=hs.HopsParamAccess.TREE),
     ],
     outputs=[
+        hs.HopsSurface("Surface", "S", "Relocated surface", access=hs.HopsParamAccess.LIST),
+        #hs.HopsString("Cost", "$", "Value function results for each point", access=hs.HopsParamAccess.TREE),
+        hs.HopsPoint("Module Grid Edges", "E", "Field of points that represent the edge of the surface", access=hs.HopsParamAccess.TREE),
         hs.HopsString("Lables", "L", "Lables for each point", access=hs.HopsParamAccess.TREE),
     ]
 )

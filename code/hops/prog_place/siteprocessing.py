@@ -45,10 +45,22 @@ def divide_site(site: r3d.Surface, road_lines_tree, sidewalk_lines_tree, grid_si
             rowpts_vals.append('{0},{1}'.format(road_weight, sidewalk_weight))
         srfpts.append(rowpts)
         values.append(rowpts_vals)
+    
+    label_array_np = np.full_like(np.array(srfpts), 's', str)
 
-    return h.list_to_tree(srfpts), h.list_to_tree(values)
+    site_grid, site_edge  = h.divide_surface(site, grid_size)
+    for row, list in enumerate(srfpts):
+        for column1, pt1 in enumerate(list):
+            for pt2 in site_edge:
+                distance = abs(m.dist((pt1.X, pt1.Y, pt1.Z), (pt2.X, pt2.Y, pt2.Z)))
+                if distance < 0.05:
+                    label_array_np[row][column1] = 'e'
+                else:
+                    continue
+    
+    return h.list_to_tree(srfpts), h.list_to_tree(values), h.list_to_tree(label_array_np.tolist())
 
-def place_packages(srfpts_tree, cost_function_tree, module_use, module_geometry: r3d.Surface, module_mask):
+def place_packages(srfpts_tree, cost_function_tree, labels_tree, module_use, module_geometry: r3d.Surface, module_mask):
 
     ### width and height of packages module
     point1 = module_geometry.PointAt(int(module_geometry.Domain(0).T0), int(module_geometry.Domain(1).T0))
@@ -68,11 +80,12 @@ def place_packages(srfpts_tree, cost_function_tree, module_use, module_geometry:
     cost_function_matrix = h.matrix_str2floats(h.tree_to_matrix(cost_function_tree))
     out_cost_function_matrix = copy.deepcopy(cost_function_matrix)
 
-    ### generate array of lables for each point
+    ### generate array of labels for each point
     ### s - site
+    ### e - site edge
     ### b - boundary
     ### i - interior
-    lable_array_np = np.full_like(srfpts_matrix, 's', str)
+    label_array_np = np.array(h.tree_to_matrix(labels_tree))
 
     ### convert module cost function information from strings to np array 
     module_mask_np = np.array([int(v) for v in module_mask.split(',')])
@@ -144,7 +157,7 @@ def place_packages(srfpts_tree, cost_function_tree, module_use, module_geometry:
                     if distance < 0.05:
                         out_cost_function_matrix[row][column1][0] = str(m.inf)
                         out_cost_function_matrix[row][column1][1] = str(m.inf)
-                        lable_array_np[row][column1] = 'i'
+                        label_array_np[row][column1] = 'i'
                     else:
                         continue
     
@@ -152,32 +165,22 @@ def place_packages(srfpts_tree, cost_function_tree, module_use, module_geometry:
         for column1, pt1 in enumerate(list):
             for pt2 in module_edge:
                 distance = abs(m.dist((pt1.X, pt1.Y, pt1.Z), (pt2.X, pt2.Y, pt2.Z)))
-                if distance < 0.05:
-                    lable_array_np[row][column1] = 'b'
+                if distance < 0.05 and label_array_np[row][column1] != 'e':
+                    label_array_np[row][column1] = 'b'
                 else:
                     continue
-    
-    lable_array = lable_array_np.tolist()
 
-    return module_geometry, h.list_to_tree(h.matrix_floats2str(out_cost_function_matrix)), module_edge, h.list_to_tree(lable_array)
+    label_array = label_array_np.tolist()
 
-def place_modules(srfpts_tree, cost_function_tree, lable_array, module_use_tree, module_geometry_list, module_mask_tree):
+    return module_geometry, h.list_to_tree(h.matrix_floats2str(out_cost_function_matrix)), module_edge, h.list_to_tree(label_array)
+
+def place_modules(srfpts_tree, cost_function_tree, label_array, module_use_tree, module_geometry_list, module_mask_tree):
     ### convert cost function and srf points information from gh trees to np array
     srfpts_matrix = np.array(h.tree_to_matrix(srfpts_tree))
     grid_size = abs(srfpts_matrix[0,0].X - srfpts_matrix[0,1].X)
     module_mask_matrix = h.tree_to_matrix(module_mask_tree)
-    print(module_geometry_list)
-
-    ### NOT WORKING
     cost_function_matrix = h.matrix_str2floats(h.tree_to_matrix(cost_function_tree))
-    out_cost_function_matrix = np.array(copy.deepcopy(cost_function_matrix))
-    lable_array_matrix = np.array(h.tree_to_matrix(lable_array))
-
-    for i, row in enumerate(lable_array_matrix):
-        for j, lable in enumerate(row):
-            if lable == 's' or lable == 'i':
-                out_cost_function_matrix[i][j][0] = str(m.inf)
-                out_cost_function_matrix[i][j][1] = str(m.inf)
+    label_array_matrix = np.array(h.tree_to_matrix(label_array))
 
     ### convert module cost function information from strings to np array 
     module_mask_np = []
@@ -191,8 +194,41 @@ def place_modules(srfpts_tree, cost_function_tree, lable_array, module_use_tree,
     for i, row in enumerate(module_mask_matrix):
         module_masked_cost.append(np.dot(np.array(cost_function_matrix), module_mask_np[i]))
 
-    print(module_masked_cost)
-    for geo in module_geometry_list:
-        print('test')
+    label_array_matrix_revised = copy.deepcopy(label_array_matrix)
 
-    return h.list_to_tree(h.matrix_floats2str(out_cost_function_matrix.tolist()))
+    out_module_edges = []
+    #place each module, update label array,
+    for num, geo in enumerate(module_geometry_list):
+        use_cost_function_matrix = copy.deepcopy(module_masked_cost[num])
+
+        if isinstance(use_cost_function_matrix[0][0], list):
+            for i, row in enumerate(use_cost_function_matrix):
+                for j, values in enumerate(row):
+                    sum = 0
+                    for k, value in enumerate(values):
+                        sum += use_cost_function_matrix[i][j][k]
+                    use_cost_function_matrix[i][j] = sum
+
+        for i, row in enumerate(label_array_matrix):
+            for j, label in enumerate(row):
+                if label == 's' or label == 'i' or label == 'e' or label == 'x':
+                    use_cost_function_matrix[i][j] = m.inf
+        
+        ### find best location
+        best_points_locs = np.where(use_cost_function_matrix == use_cost_function_matrix.min())
+        print(best_points_locs)
+        best_points = [(x,y) for y,x in zip(best_points_locs[0], best_points_locs[1])]
+        best_points.sort()
+        best_point = best_points[int(len(best_points) / 2)]
+
+        corner = srfpts_matrix[best_point[1], best_point[0]]
+        print(corner)
+
+        module_grid, module_edge  = h.divide_surface(geo, grid_size)
+        out_module_edges.append(module_edge)
+
+        ### update label array matrix
+        
+
+    #return "surface", [excluded] "cost", "module edges", "label"
+    return module_geometry_list, h.list_to_tree(out_module_edges), h.list_to_tree(label_array_matrix_revised.tolist())
