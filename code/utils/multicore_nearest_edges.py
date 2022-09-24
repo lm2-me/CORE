@@ -20,15 +20,11 @@ interpolation function.
 
 # Expects results in same coordinate system as graph.
 # Make sure you first transform coordinates and project graph.
+
 def _single_find_nearest_edge(X, Y, vertices, is_scalar):
     _, pos = cKDTree(vertices).query(np.array([X, Y]).T, k=1)
     ne = vertices.index[pos]
 
-    # # convert results to correct types for return
-    # ne = list(ne)
-    # if is_scalar:
-    #     ne = ne[0]
-    
     return ne
 
 def _interpolate_graph(G, X, Y, interpolate=10):
