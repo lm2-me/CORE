@@ -1,4 +1,5 @@
 from math import sqrt
+from types import NoneType
 from typing import Dict, List
 import rhino3dm as r3d
 import math as m
@@ -70,12 +71,14 @@ def vector3d_2pts(pt1, pt2):
 
     return out
 
-def corners(geometry):
-    btm_left = geometry.PointAt(int(geometry.Domain(0).T0), int(geometry.Domain(1).T0))
-    tp_left = geometry.PointAt(int(geometry.Domain(0).T0), int(geometry.Domain(1).T1))
-    tp_right = geometry.PointAt(int(geometry.Domain(0).T1), int(geometry.Domain(1).T1))
-    btm_right = geometry.PointAt(int(geometry.Domain(0).T1), int(geometry.Domain(1).T0))
-    return btm_left, tp_left, tp_right, btm_right
+def corners(geometry: r3d.Surface):
+    bbox = geometry.GetBoundingBox()
+    btm_left = bbox.Min
+    tp_right = bbox.Max
+    tp_left = r3d.Point3d(btm_left.X, tp_right.Y, 0)
+    btm_right = r3d.Point3d(tp_right.X, btm_left.Y, 0)
+
+    return btm_left, tp_left, tp_right, btm_right, [btm_left, tp_left, tp_right, btm_right]
 
 def divide_surface_inset(surface, grid_size):
     srf_u_start = int(surface.Domain(0).T0)
@@ -117,3 +120,95 @@ def divide_surface(surface, grid_size):
     edge =  np.concatenate((srfpts_np[0,:], srfpts_np[1:,-1], srfpts_np[-1,:-1], srfpts_np[1:-1,0])).tolist()
     
     return midpoints, edge
+
+def location_closest_grid_point(srfpts_matrix, points):
+    out_location = []
+    for row, l in enumerate(srfpts_matrix):
+        for column, pt1 in enumerate(l):
+            if isinstance(points, list):
+                for pt2 in points:
+                    distance = abs(m.dist((pt1.X, pt1.Y, pt1.Z), (pt2.X, pt2.Y, pt2.Z)))
+                    if distance < 0.1:
+                        out_location.append([row, column])
+                    if len(out_location) == len(points):
+                        break
+                    else: continue
+            else:
+                distance = abs(m.dist((pt1.X, pt1.Y, pt1.Z), (points.X, points.Y, points.Z)))
+                if distance < 0.1:
+                    out_location.append(row)
+                    out_location.append(column)
+                    break
+                else: continue
+    while len(out_location) < len(points) and len(out_location) < 10:
+        out_location.append(None)
+
+    return out_location
+
+def update_label(label_array_np, srfpts_matrix, pts_to_update, new_label):
+    for row, l in enumerate(srfpts_matrix):
+        for column1, pt1 in enumerate(l):
+            for pt2 in pts_to_update:
+                if isinstance(pt2, list):
+                    for pts in pt2:
+                        distance = abs(m.dist((pt1.X, pt1.Y, pt1.Z), (pts.X, pts.Y, pts.Z)))
+                        if distance < 0.05:
+                            label_array_np[row][column1] = new_label
+                else: 
+                    distance = abs(m.dist((pt1.X, pt1.Y, pt1.Z), (pt2.X, pt2.Y, pt2.Z)))
+                    if distance < 0.05:
+                        label_array_np[row][column1] = new_label
+                    else:
+                        continue
+    
+    return label_array_np
+
+
+def convert_interior_boundaries(arr_base: np.ndarray):
+    arr_bottom_right = np.vstack((
+        np.hstack((
+            arr_base[1:,1:],
+            np.full((arr_base.shape[0] - 1, 1), 'x')
+        )),
+        np.full((1, arr_base.shape[1]), 'x')
+    ))
+
+    arr_bottom_left = np.vstack((
+        np.hstack((
+            np.full((arr_base.shape[0] - 1, 1), 'x'),
+            arr_base[1:,:-1]
+        )),
+        np.full((1, arr_base.shape[1]), 'x')
+    ))
+
+    arr_top_right = np.vstack((
+        np.full((1, arr_base.shape[1]), 'x'),
+        np.hstack((
+            arr_base[:-1,1:],
+            np.full((arr_base.shape[0] - 1, 1), 'x')
+        ))
+    ))
+
+    arr_top_left = np.vstack((
+        np.full((1, arr_base.shape[1]), 'x'),
+        np.hstack((
+            np.full((arr_base.shape[0] - 1, 1), 'x'),
+            arr_base[:-1,:-1]
+        ))
+    ))
+
+    arr_combined = np.dstack((arr_base, arr_top_left, arr_top_right, arr_bottom_left, arr_bottom_right))
+
+    for y in range(arr_combined.shape[0]):
+        for x in range(arr_combined.shape[1]):
+            if (
+                arr_combined[y,x][0] == 'b' and
+                not (
+                    np.isin('x', arr_combined[y,x]) or
+                    np.isin('e', arr_combined[y,x]) or
+                    np.isin('s', arr_combined[y,x])
+                )
+            ):
+                arr_base[y,x] = 'i'
+
+    return arr_base
