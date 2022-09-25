@@ -194,14 +194,6 @@ def place_modules(srfpts_tree, cost_function_tree, label_array, module_use_tree,
     for num, geo in enumerate(module_geometry_list):
         use_cost_function_matrix = copy.deepcopy(module_masked_cost[num])
 
-        # if isinstance(use_cost_function_matrix[0][0], list):
-        #     for i, row in enumerate(use_cost_function_matrix):
-        #         for j, values in enumerate(row):
-        #             sum = 0
-        #             for k, value in enumerate(values):
-        #                 sum += use_cost_function_matrix[i][j][k]
-        #             use_cost_function_matrix[i][j] = sum
-
         for i, row in enumerate(label_array_matrix):
             for j, label in enumerate(row):
                 if label == 's' or label == 'i' or label == 'e' or label == 'x':

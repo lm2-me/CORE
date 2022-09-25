@@ -165,50 +165,12 @@ def update_label(label_array_np, srfpts_matrix, pts_to_update, new_label):
 
 
 def convert_interior_boundaries(arr_base: np.ndarray):
-    arr_bottom_right = np.vstack((
-        np.hstack((
-            arr_base[1:,1:],
-            np.full((arr_base.shape[0] - 1, 1), 'x')
-        )),
-        np.full((1, arr_base.shape[1]), 'x')
-    ))
+    arr_base_mask = np.where((arr_base == 'b') | (arr_base == 'i'), 1, 0)
+    arr_base_mask_padded = np.pad(arr_base_mask, ((1,1), (1,1)), 'constant')
 
-    arr_bottom_left = np.vstack((
-        np.hstack((
-            np.full((arr_base.shape[0] - 1, 1), 'x'),
-            arr_base[1:,:-1]
-        )),
-        np.full((1, arr_base.shape[1]), 'x')
-    ))
+    arr_interior_mask = arr_base_mask * arr_base_mask_padded[2:,2:] * arr_base_mask_padded[2:,:-2] * arr_base_mask_padded[:-2,2:] * arr_base_mask_padded[:-2, :-2]
+    arr_updated_mask = np.where(arr_interior_mask == 1, 'i', arr_base)
 
-    arr_top_right = np.vstack((
-        np.full((1, arr_base.shape[1]), 'x'),
-        np.hstack((
-            arr_base[:-1,1:],
-            np.full((arr_base.shape[0] - 1, 1), 'x')
-        ))
-    ))
-
-    arr_top_left = np.vstack((
-        np.full((1, arr_base.shape[1]), 'x'),
-        np.hstack((
-            np.full((arr_base.shape[0] - 1, 1), 'x'),
-            arr_base[:-1,:-1]
-        ))
-    ))
-
-    arr_combined = np.dstack((arr_base, arr_top_left, arr_top_right, arr_bottom_left, arr_bottom_right))
-
-    for y in range(arr_combined.shape[0]):
-        for x in range(arr_combined.shape[1]):
-            if (
-                arr_combined[y,x][0] == 'b' and
-                not (
-                    np.isin('x', arr_combined[y,x]) or
-                    np.isin('e', arr_combined[y,x]) or
-                    np.isin('s', arr_combined[y,x])
-                )
-            ):
-                arr_base[y,x] = 'i'
+    print(arr_updated_mask)
 
     return arr_base
