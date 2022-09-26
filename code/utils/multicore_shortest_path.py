@@ -13,6 +13,8 @@ from functools import partial
 
 from pyproj import Transformer
 
+import sys
+
 '''
     The core of this code is written by Nathan Rooy in the
     taxicab Python package. This code, written by Job de Vogel
@@ -100,9 +102,12 @@ def _compute_route_weight(graph, route, weight, ls_orig, ls_dest, orig_edge, des
         partial_orig_edge_length = 0
         for i in range(0, len(x)-1):
             partial_orig_edge_length += great_circle_vec(y[i], x[i], y[i+1], x[i+1])
-
-        partial_orig_factor = partial_orig_edge_length / orig_edge_length
-        partial_orig_edge_weight = partial_orig_factor * graph.edges[orig_edge][weight]
+        
+        if orig_edge_length > 0:
+            partial_orig_factor = partial_orig_edge_length / orig_edge_length
+            partial_orig_edge_weight = partial_orig_factor * graph.edges[orig_edge][weight]
+        else:
+            partial_orig_edge_weight = 0
 
     if type(ls_dest) == LineString:
         x, y = zip(*ls_dest.coords)
@@ -197,8 +202,10 @@ def _single_shortest_path(G, orig_yx, dest_yx, orig_edge, dest_edge,
             raise ValueError('Method does not exist')
 
         p_o, p_d = Point(orig_yx[::-1]), Point(dest_yx[::-1])
+        
         orig_geo = _get_edge_geometry(G, orig_edge)
         dest_geo = _get_edge_geometry(G, dest_edge)
+            
 
         orig_clip = orig_geo.project(p_o, normalized=True)
         dest_clip = dest_geo.project(p_d, normalized=True)
@@ -207,9 +214,9 @@ def _single_shortest_path(G, orig_yx, dest_yx, orig_edge, dest_edge,
         orig_partial_edge_2 = substring(orig_geo, 0, orig_clip, normalized=True)
         dest_partial_edge_1 = substring(dest_geo, dest_clip, 1, normalized=True)
         dest_partial_edge_2 = substring(dest_geo, 0, dest_clip, normalized=True)
-
+        
         # when the nx route is just a single node, this is a bit of an edge case
-        if len(nx_route) <= 2:
+        if len(nx_route) < 2:
             nx_route = []
             if orig_partial_edge_1.intersects(dest_partial_edge_1):
                 orig_partial_edge = orig_partial_edge_1
@@ -226,9 +233,21 @@ def _single_shortest_path(G, orig_yx, dest_yx, orig_edge, dest_edge,
             if orig_partial_edge_2.intersects(dest_partial_edge_2):
                 orig_partial_edge = orig_partial_edge_2
                 dest_partial_edge = dest_partial_edge_2
+        elif len(nx_route) == 2:
+            route_edge = _get_edge_geometry(G, (nx_route[0], nx_route[1], 0))
+            if route_edge.intersects(orig_partial_edge_1):
+                orig_partial_edge = orig_partial_edge_1
             
+            if route_edge.intersects(orig_partial_edge_2):
+                orig_partial_edge = orig_partial_edge_2
+
+            if route_edge.intersects(dest_partial_edge_1):
+                dest_partial_edge = orig_partial_edge_1
+
+            if route_edge.intersects(orig_partial_edge_2):
+                dest_partial_edge = orig_partial_edge_2          
         # when routing across two or more edges
-        if len(nx_route) >= 3:
+        elif len(nx_route) >= 3:
             # check overlap with first route edge
             route_orig_edge = _get_edge_geometry(G, (nx_route[0], nx_route[1], 0))
             if route_orig_edge.intersects(orig_partial_edge_1) and route_orig_edge.intersects(orig_partial_edge_2):
@@ -242,26 +261,26 @@ def _single_shortest_path(G, orig_yx, dest_yx, orig_edge, dest_edge,
                 orig_partial_edge = orig_partial_edge_2
 
             ### resolve destination
-
             # check overlap with last route edge
             route_dest_edge = _get_edge_geometry(G, (nx_route[-2], nx_route[-1], 0))
             if route_dest_edge.intersects(dest_partial_edge_1) and route_dest_edge.intersects(dest_partial_edge_2):
                 nx_route = nx_route[:-1]
 
             # determine which destination partial edge to use
-            route_dest_edge = _get_edge_geometry(G, (nx_route[-2], nx_route[-1], 0)) 
+            route_dest_edge = _get_edge_geometry(G, (nx_route[-2], nx_route[-1], 0))
+
             if route_dest_edge.intersects(dest_partial_edge_1):
                 dest_partial_edge = dest_partial_edge_1
             else:
                 dest_partial_edge = dest_partial_edge_2
-            
-    # final check
-    if orig_partial_edge:
-        if len(orig_partial_edge.coords) <= 1:
-            orig_partial_edge = []
-    if dest_partial_edge:
-        if len(dest_partial_edge.coords) <= 1:
-            dest_partial_edge = []
+    
+        # final check
+        if orig_partial_edge:
+            if len(orig_partial_edge.coords) <= 1:
+                orig_partial_edge = []
+        if dest_partial_edge:
+            if len(dest_partial_edge.coords) <= 1:
+                dest_partial_edge = []
 
     route_weight = _compute_route_weight(G, nx_route, weight, orig_partial_edge, dest_partial_edge, orig_edge, dest_edge)
 
