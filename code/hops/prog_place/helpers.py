@@ -1,4 +1,5 @@
 from math import sqrt
+from types import NoneType
 from typing import Dict, List
 import rhino3dm as r3d
 import math as m
@@ -27,6 +28,11 @@ def tree_to_matrix(tree: Dict[str, List[str]]):
     for _,b in tree_to_list:
         out.append(b)
     return out
+
+def tree_to_list(tree: Dict[str, List[str]]):
+    tree_to_list = [(int(k[1:-1]),v) for k,v in tree.items()]
+    tree_to_list.sort()
+    return [x[1] for x in tree_to_list]
     
 def matrix_str2floats(matrix: List[List[str]]):
     out = copy.deepcopy(matrix)
@@ -65,12 +71,14 @@ def vector3d_2pts(pt1, pt2):
 
     return out
 
-def corners(geometry):
-    btm_left = geometry.PointAt(int(geometry.Domain(0).T0), int(geometry.Domain(1).T0))
-    tp_left = geometry.PointAt(int(geometry.Domain(0).T0), int(geometry.Domain(1).T1))
-    tp_right = geometry.PointAt(int(geometry.Domain(0).T1), int(geometry.Domain(1).T1))
-    btm_right = geometry.PointAt(int(geometry.Domain(0).T1), int(geometry.Domain(1).T0))
-    return btm_left, tp_left, tp_right, btm_right
+def corners(geometry: r3d.Surface):
+    bbox = geometry.GetBoundingBox()
+    btm_left = bbox.Min
+    tp_right = bbox.Max
+    tp_left = r3d.Point3d(btm_left.X, tp_right.Y, 0)
+    btm_right = r3d.Point3d(tp_right.X, btm_left.Y, 0)
+
+    return btm_left, tp_left, tp_right, btm_right, [btm_left, tp_left, tp_right, btm_right]
 
 def divide_surface_inset(surface, grid_size):
     srf_u_start = int(surface.Domain(0).T0)
@@ -112,3 +120,57 @@ def divide_surface(surface, grid_size):
     edge =  np.concatenate((srfpts_np[0,:], srfpts_np[1:,-1], srfpts_np[-1,:-1], srfpts_np[1:-1,0])).tolist()
     
     return midpoints, edge
+
+def location_closest_grid_point(srfpts_matrix, points):
+    out_location = []
+    for row, l in enumerate(srfpts_matrix):
+        for column, pt1 in enumerate(l):
+            if isinstance(points, list):
+                for pt2 in points:
+                    distance = abs(m.dist((pt1.X, pt1.Y, pt1.Z), (pt2.X, pt2.Y, pt2.Z)))
+                    if distance < 0.1:
+                        out_location.append([row, column])
+                    if len(out_location) == len(points):
+                        break
+                    else: continue
+            else:
+                distance = abs(m.dist((pt1.X, pt1.Y, pt1.Z), (points.X, points.Y, points.Z)))
+                if distance < 0.1:
+                    out_location.append(row)
+                    out_location.append(column)
+                    break
+                else: continue
+    while len(out_location) < len(points) and len(out_location) < 10:
+        out_location.append(None)
+
+    return out_location
+
+def update_label(label_array_np, srfpts_matrix, pts_to_update, new_label):
+    for row, l in enumerate(srfpts_matrix):
+        for column1, pt1 in enumerate(l):
+            for pt2 in pts_to_update:
+                if isinstance(pt2, list):
+                    for pts in pt2:
+                        distance = abs(m.dist((pt1.X, pt1.Y, pt1.Z), (pts.X, pts.Y, pts.Z)))
+                        if distance < 0.05:
+                            label_array_np[row][column1] = new_label
+                else: 
+                    distance = abs(m.dist((pt1.X, pt1.Y, pt1.Z), (pt2.X, pt2.Y, pt2.Z)))
+                    if distance < 0.05:
+                        label_array_np[row][column1] = new_label
+                    else:
+                        continue
+    
+    return label_array_np
+
+
+def convert_interior_boundaries(arr_base: np.ndarray):
+    arr_base_mask = np.where((arr_base == 'b') | (arr_base == 'i'), 1, 0)
+    arr_base_mask_padded = np.pad(arr_base_mask, ((1,1), (1,1)), 'constant')
+
+    arr_interior_mask = arr_base_mask * arr_base_mask_padded[2:,2:] * arr_base_mask_padded[2:,:-2] * arr_base_mask_padded[:-2,2:] * arr_base_mask_padded[:-2, :-2]
+    arr_updated_mask = np.where(arr_interior_mask == 1, 'i', arr_base)
+
+    print(arr_updated_mask)
+
+    return arr_base
