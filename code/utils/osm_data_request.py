@@ -128,7 +128,7 @@ def get_building_query(input):
 def get_osm_addr(query, url=None):
     #Running the API Call
     api = overpy.Overpass(url)
-    print("Looking for adresses...")
+    print("Searching for adresses...")
     results = api.query(query)
     print("Addresses found:" + str(len(results.nodes)))
 
@@ -150,7 +150,7 @@ def get_osm_addr(query, url=None):
 def get_osm_building(query, url=None):
     #Running the API Call
     api = overpy.Overpass(url)
-    print("Looking for buildings...")
+    print("Searching for buildings...")
     results = api.query(query)
     print("Buildings found:" + str(len(results.ways)))
 

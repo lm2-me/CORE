@@ -214,9 +214,9 @@ class CityNetwork():
     """ Storing the graph as a pickle file avoids having to recalculate
     attributes such as speed, length etc. and is way faster
     """
-    def save_graph(self, name: str):        
+    def save_graph(self, name: str, folder: str):        
         object_name = name
-        path = 'data/' + str(object_name) + '.pkl'
+        path = folder + str(object_name) + '.pkl'
         print('Saving {} to {}'.format(object_name, path))
 
         with open(path, 'wb') as file:
@@ -266,6 +266,7 @@ class CityNetwork():
     # Plot the map without any routes
     # Copy from osmnx and taxicab, slightly changed to work for multiple routes
     def plot(self, routes, origins, destinations, save=False):
+        print('Plotting figure...')
         fig, ax = ox.plot_graph(self.graph, show=False, save=False, close=False,
             figsize = self.figsize,
             bgcolor = self.bgcolor,
@@ -292,11 +293,13 @@ class CityNetwork():
                     y.extend((self.graph.nodes[u]["y"], self.graph.nodes[v]["y"]))
             ax.plot(x, y, c=self.route_color, lw=self.route_width)
             
-            x, y = zip(*ls_orig.coords)
-            ax.plot(x, y, c=self.route_color, lw=self.route_width)
+            if not isinstance(ls_orig, list):
+                x, y = zip(*ls_orig.coords)
+                ax.plot(x, y, c=self.route_color, lw=self.route_width)
 
-            x, y = zip(*ls_dest.coords)
-            ax.plot(x, y, c=self.route_color, lw=self.route_width)
+            if not isinstance(ls_dest, list):
+                x, y = zip(*ls_dest.coords)
+                ax.plot(x, y, c=self.route_color, lw=self.route_width)
 
             ax.scatter(orig[1], orig[0],
                 color=self.cross_color, marker='x', s=100, label='orig-point')
@@ -315,9 +318,9 @@ class CityNetwork():
     # attributes such as speed, length etc. and is way faster
     # Call this function through var = CityNetwork.load_graph('var')
     @staticmethod
-    def load_graph(name: str):
+    def load_graph(name: str, folder: str):
         object_name = name
-        path = 'data/' + str(object_name) + '.pkl'
+        path = folder + str(object_name) + '.pkl'
 
         print("Loading...")
         with open(path, 'rb') as file:

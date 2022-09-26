@@ -1,3 +1,4 @@
+from tkinter.ttk import Progressbar
 import networkx as nx
 
 from shapely.geometry import Point
@@ -13,7 +14,8 @@ from functools import partial
 
 from pyproj import Transformer
 
-import sys
+import math
+import tqdm
 
 '''
     The core of this code is written by Nathan Rooy in the
@@ -191,15 +193,20 @@ def _single_shortest_path(G, orig_yx, dest_yx, orig_edge, dest_edge,
         dest_partial_edge = []
         nx_route = []
     else:
-        if method == 'astar':
-            nx_route = nx.astar_path(G, orig_edge[0], dest_edge[0], weight=weight)
-        elif method == 'bellman-ford':
-            nx_route = nx.shortest_path(G, orig_edge[0], dest_edge[0], weight=weight)
-        elif method == 'dijkstra':
-            # Fall back on dijkstra
-            nx_route = nx.shortest_path(G, orig_edge[0], dest_edge[0], weight=weight)
-        else:
-            raise ValueError('Method does not exist')
+        try:
+            if method == 'astar':
+                nx_route = nx.astar_path(G, orig_edge[0], dest_edge[0], weight=weight)
+            elif method == 'bellman-ford':
+                nx_route = nx.shortest_path(G, orig_edge[0], dest_edge[0], weight=weight)
+            elif method == 'dijkstra':
+                # Fall back on dijkstra
+                nx_route = nx.shortest_path(G, orig_edge[0], dest_edge[0], weight=weight)
+            else:
+                raise ValueError('Method does not exist')
+        except nx.NetworkXNoPath:
+            nx_route = []
+            print(f"USER-WARNING: Path between {orig_yx} and {dest_yx} not possible!")
+            print(f"Route weight will be set to euclidian distance (multiplied by walking speed, for travel_time).")
 
         p_o, p_d = Point(orig_yx[::-1]), Point(dest_yx[::-1])
         
@@ -215,8 +222,12 @@ def _single_shortest_path(G, orig_yx, dest_yx, orig_edge, dest_edge,
         dest_partial_edge_1 = substring(dest_geo, dest_clip, 1, normalized=True)
         dest_partial_edge_2 = substring(dest_geo, 0, dest_clip, normalized=True)
         
+        # when there is no path available, edge case:
+        if len(nx_route) == 0:
+            orig_partial_edge = []
+            dest_partial_edge = []
         # when the nx route is just a single node, this is a bit of an edge case
-        if len(nx_route) < 2:
+        elif len(nx_route) == 1:
             nx_route = []
             if orig_partial_edge_1.intersects(dest_partial_edge_1):
                 orig_partial_edge = orig_partial_edge_1
@@ -282,7 +293,15 @@ def _single_shortest_path(G, orig_yx, dest_yx, orig_edge, dest_edge,
             if len(dest_partial_edge.coords) <= 1:
                 dest_partial_edge = []
 
-    route_weight = _compute_route_weight(G, nx_route, weight, orig_partial_edge, dest_partial_edge, orig_edge, dest_edge)
+    if len(nx_route) > 0:
+        route_weight = _compute_route_weight(G, nx_route, weight, orig_partial_edge, dest_partial_edge, orig_edge, dest_edge)
+    else:
+        if weight == 'length':
+            route_weight = math.dist(orig_yx, dest_yx)
+        elif weight == 'travel_time':
+            route_weight = math.dist(orig_yx, dest_yx) * 1.3
+        else:
+            print(f'Cannot assign weight for {weight} with impossible route.')
 
     # If the nodes do not have to be returned: replace route by None, so that
     # parallel computation does not have to store the route in memory every path
@@ -320,13 +339,14 @@ def multicore_shortest_path(graph, orig, dest, orig_edge, dest_edge, method='dij
             # Return route_weight, route, partial_edge_1 and partial_edge_2
             result = [_single_shortest_path(graph, o, d, ls_o, ls_d, method=method, weight=weight, return_path=return_path) for o, d, ls_o, ls_d in zip(orig, dest, orig_edge, dest_edge)]
         else:
-            print("WARNING: Make sure you put the multicore_shortest_path function in a 'if __name__ == '__main__' statement!")
+            print("USER-WARNING: Make sure you put the multicore_shortest_path function in a 'if __name__ == '__main__' statement!")
             # If multi-threading, calculate shortest paths in parallel
             args = ((graph, o, d, ls_o, ls_d) for o, d, ls_o, ls_d in zip(orig, dest, orig_edge, dest_edge))
             pool = mp.Pool(cpus)
 
             # Add kwargs using partial method
-            sma = pool.starmap_async(partial(_single_shortest_path, method=method, weight=weight, return_path=return_path), args)
+            sma = pool.starmap_async(partial(_single_shortest_path, method=method, weight=weight, return_path=return_path), tqdm.tqdm(args, total=len(orig)))
+
             result = sma.get()
             pool.close()
             pool.join()

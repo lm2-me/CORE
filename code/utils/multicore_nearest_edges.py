@@ -7,6 +7,7 @@ import multiprocessing as mp
 from scipy.spatial import cKDTree
 
 import time
+import tqdm
 
 '''
 This script was originally developed by gboing in OSMnx. It
@@ -49,6 +50,7 @@ def _interpolate_graph(G, X, Y, interpolate=10):
     return X, Y, vertices, is_scalar
 
 def multicore_nearest_edge(graph, X, Y, interpolate, cpus=1):
+    
     """
     Find the nearest edge to a point or to each of several points.
 
@@ -102,13 +104,13 @@ def multicore_nearest_edge(graph, X, Y, interpolate, cpus=1):
         # Return route_weight, route, partial_edge_1 and partial_edge_2
         result = [_single_find_nearest_edge(x, y, vertices, is_scalar) for x, y in zip(X, Y)]
     else:
-        print("WARNING: Make sure you put the multicore_nearest_edge function in a 'if __name__ == '__main__' statement!")
+        print("USER-WARNING: Make sure you put the multicore_nearest_edge function in a 'if __name__ == '__main__' statement!")
         # If multi-threading, calculate shortest paths in parallel           
         args = ((x, y, vertices, is_scalar) for x, y in zip(X, Y))
         pool = mp.Pool(cpus)
 
         # Add kwargs using partial method
-        sma = pool.starmap_async(_single_find_nearest_edge, args)
+        sma = pool.starmap_async(_single_find_nearest_edge, tqdm.tqdm(args, total=len(X)))
         result = sma.get()
         pool.close()
         pool.join()

@@ -23,16 +23,30 @@ It includes references to:
 '''
 
 @timer_decorator
-def main(): 
+def main():
+    ''' --- INITIALIZE --- '''
+    name = 'Rotterdam_bike'
+    data_folder = 'data/'
+    vehicle_type = 'bike' # walk, bike, drive, all (See osmnx documentation)
+
+    # Initialize CityNetwork object [N, S, E, W]
+    # Delft City center: [52.018347, 52.005217, 4.369142, 4.350504]
+    # Delft: [52.03, 51.96, 4.4, 4.3]
+    # Rotterdam center (control): [51.926366, 51.909002, 4.48460, 4.455496]
+    coordinates = [51.926366, 51.909002, 4.48460, 4.455496]
+
+
     ''' --- GENERATE NETWORK ---
     Generate a new network using the functions in the CityNetwork class. If a network already has been generated and stored in the data folder, skip this part and continue with PREPARE NETWORK. '''
 
     # Initialize CityNetwork object [N, S, E, W]
-    Delft = CityNetwork('Delft_bike', [52.018347, 52.005217, 4.369142, 4.350504], 'bike')
+    Delft = CityNetwork(name, coordinates, vehicle_type)
     
     # Load osm from local or online file
-    Delft.load_osm_graph('data/Delft_bike.osm')
-    Delft.load_building_addr('data/building_addresses.csv', 'data/buildings.csv', 'data/addresses.csv')
+    Delft.load_osm_graph(data_folder + name + '.osm')
+    Delft.load_building_addr(data_folder + name + '_building_addresses.csv', 
+        data_folder + name + '_buildings.csv', 
+        data_folder + name + '_addresses.csv')
     
     print(Delft.building_addr_df)
 
@@ -50,14 +64,14 @@ def main():
     Delft.convert_graph_nodes_to_df()
 
     # # Save Pickle file
-    Delft.save_graph('Delft_bike')
+    Delft.save_graph(name, data_folder)
     print('------------------------------------')
 
 
     ''' --- PREPARE NETWORK ---
     Load the network from .pkl file. Transform the origin and destination to the unprojected space.'''
     # Load the Delft CityNetwork class object
-    Delft = CityNetwork.load_graph('Delft_bike')
+    Delft = CityNetwork.load_graph(name, data_folder)
 
     # Specify the coordinates for origin and destination
     # Get the coordinates from building dataframe   
@@ -65,7 +79,7 @@ def main():
 
     # Convert the coordinates to tuples, destinations are one goal
     origins = list(coordinates.itertuples(index=False, name=None))
-    destinations = [((52.011803, 4.359462))] * len(origins)
+    destinations = [((51.916328, 4.473386))] * len(origins)
 
     # Extract the graph from the Delft CityNetwork
     graph = Delft.graph
@@ -89,6 +103,8 @@ def main():
     # Remove existing nearest_edges in CityNetwork object, proceed carefully:
     # Delft.ne = None
 
+    # Split the origins and destinations in x coordinate and y coordinate
+    # Combine the origins and destinations values so they can be computed in one calculation
     x = []
     y = []
 
@@ -107,7 +123,7 @@ def main():
     edges = Delft.nearest_edges(x, y, 5, cpus=None)
 
     # Save graph with edges, proceed carefully:
-    Delft.save_graph('Delft_bike')
+    Delft.save_graph(name, data_folder)
 
     # Split the found edges in origins and destinations (in half)
     orig_edge = edges[:len(edges)//2]
@@ -115,16 +131,10 @@ def main():
     
 
     ''' --- MULTICORE SHORTEST PATH COMPUTATION ---
-    Compute the shortest path between origin and destination, taking in account the position of the start and end in relation to the nearest edges. Input of orig, dest, orig_edge and dest_edge will interally be converted to a list, if inputed as tuples. '''
-    
-    import utils.taxicab_source as tc
-
-    # paths = tc.shortest_path(Delft.graph, (6802077.9802146815, 485196.2420156359), (6802259.869592126, 485293.08997262595), orig_edge=(1391531659, 1391531653, 0), dest_edge=(1391531687, 1391531710, 0))
-
-    
+    Compute the shortest path between origin and destination, taking in account the position of the start and end in relation to the nearest edges. Input of orig, dest, orig_edge and dest_edge will interally be converted to a list, if inputed as tuples. '''    
     print('------------------------------------')
     start = time.time()
-    paths = Delft.shortest_paths(orig_yx_transf, dest_yx_transf, orig_edge, dest_edge, weight='travel_time', method='dijkstra', return_path=True, cpus=12)
+    paths = Delft.shortest_paths(orig_yx_transf, dest_yx_transf, orig_edge, dest_edge, weight='travel_time', method='dijkstra', return_path=True, cpus=None)
     end = time.time()
     print(f"Finished solving {len(paths)} paths in {round(end-start)}s.")
     # print(paths)
@@ -145,7 +155,6 @@ def main():
 
     # Specify which attributes to show
     # Not sure which attributes are available? Use Delft.get_edge_attribute_types()
-    
     df = Delft.graph_edges_df.loc[edges, ['name', 'length', 'speed_kph', 'travel_time']]
     print(df)
     
