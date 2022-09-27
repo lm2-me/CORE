@@ -13,6 +13,8 @@ hops = hs.Hops(app)
 #http://127.0.0.1:5000/dividesite
 
 ### Add addtitonal component registrations under here
+
+### components written by LM
 @hops.component(
     "/dividesite",
     name="DivideSite",
@@ -78,6 +80,10 @@ def placepackages(srfpts_tree, cost_function_tree, lables_tree, module_use, modu
 )
 def placemodules(srfpts_tree, cost_function_tree, lable_array, module_use_tree, module_geometry_list, module_mask_tree):
     return siteprocessing.place_modules(srfpts_tree, cost_function_tree, lable_array, module_use_tree, module_geometry_list, module_mask_tree)
+
+
+### components written by 
+
 
 ### END COMPONENT REGISTRATION
 
