@@ -10,13 +10,13 @@ dependencies:
 - flask=2.2.2
 - pip=22.2.2
 - osmnx=1.2.2
-- overpy=0.6
 - owslib=0.27.2
 - tqdm=4.64.0
 - pip:
   - ghhops-server==1.5.3
   - taxicab==0.0.3
   - rhino3dm
+  - overpy==0.6
 
 #if you run " conda env update --prefix ./env --file conda_env.yml  --prune " 
 #then it will install pip and ghhops-server without needing to install seperately
