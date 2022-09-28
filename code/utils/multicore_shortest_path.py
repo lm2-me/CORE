@@ -68,18 +68,6 @@ def transform_coordinates(coordinate: tuple or list, from_crs="epsg:4326", to_cr
 
     return result
 
-# Expects results in same coordinate system as graph.
-# Make sure you first transform coordinates and project graph.
-def find_nearest_edge(graph, orig_yx, dest_yx):
-    """
-    Optimize using ox.distance.nearest_edges with interpolate, see documentation
-    """
-    # # # Find the closest edges to origin and destination
-    orig_edge = nearest_edges(graph, orig_yx[1], orig_yx[0]) 
-    dest_edge = nearest_edges(graph, dest_yx[1], dest_yx[0])
-
-    return orig_edge, dest_edge
-
 # Calculate the total weight of the path, including partial edges
 def _compute_route_weight(graph, route, weight, ls_orig, ls_dest, orig_edge, dest_edge):
     '''
