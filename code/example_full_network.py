@@ -2,6 +2,9 @@ import matplotlib.pyplot as plt
 
 from network_delft import CityNetwork, timer_decorator
 from utils.multicore_shortest_path import transform_coordinates
+from utils.multicore_nearest_edges import multicore_nearest_edge
+
+import osmnx as ox
 
 import time
 
@@ -88,8 +91,8 @@ def main():
     coordinates = City.building_addr_df.loc[:, ['latitude', 'longitude']]
 
     # Convert the coordinates to tuples, destinations are one goal, will be hubs
-    #origins = list(coordinates.itertuples(index=False, name=None))
-    origins = [(52.017501, 4.359047)]
+    origins = list(coordinates.itertuples(index=False, name=None))
+    # origins = [(52.017501, 4.359047)]
     destinations = [(destination)] * len(origins)
 
     # Extract the graph from the City CityNetwork
@@ -126,11 +129,10 @@ def main():
     for dest in dest_yx_transf:
         x.append(dest[1])
         y.append(dest[0])
-
+    
     # Find the nearest edges using multicore processing. If the CityNetwork class
     # already has nearest edges stored, it skips the computation.
     # Number in input indicating the interpolation distance in meters
-    
     print('Finding origin and destination edges...')
     edges = City.nearest_edges(x, y, 5, cpus=None)
 
@@ -140,7 +142,13 @@ def main():
     # Split the found edges in origins and destinations (in half)
     orig_edge = edges[:len(edges)//2]
     dest_edge = edges[len(edges)//2:]
-    
+
+    # Calculate nearest edges for destinations (hubs)
+    # Since interpolation already has been computed, you can use the City.interplation
+    # as input and it will use the original interpolation vertices.
+    # In smaller batchsizes, such as 3 hubs to calculate nearest edges, it is recommended
+    # to only use a single CPU.
+    hub_nearest_edges = multicore_nearest_edge(City.graph, [485220.1979700546], [6801392.870718836], City.interpolation, cpus=1)
 
     ''' --- MULTICORE SHORTEST PATH COMPUTATION ---
     Compute the shortest path between origin and destination, taking in account the position of the start and end in relation to the nearest edges. Input of orig, dest, orig_edge and dest_edge will interally be converted to a list, if inputed as tuples. '''    

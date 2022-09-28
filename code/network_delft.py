@@ -74,6 +74,7 @@ class CityNetwork():
         self.building_addr_df = None
         self.url = [None, "https://maps.mail.ru/osm/tools/overpass/api/interpreter", "https://overpass.kumi.systems/api/interpreter", "https://lz4.overpass-api.de/api/interpreter"]
         self.ne = None
+        self.interpolation = None
 
 
     def __repr__(self):
@@ -236,8 +237,9 @@ class CityNetwork():
 
             if len(x) != len(y):
                 raise ValueError('Please make sure x and y have the same length.') 
-
-            self.ne = multicore_nearest_edge(self.graph, x, y, interpolate, cpus=cpus)
+            
+            multicore_edge_result = multicore_nearest_edge(self.graph, x, y, interpolate, cpus=cpus)
+            self.ne, self.interpolation = multicore_edge_result[0], multicore_edge_result[1]
             return self.ne
         else:
             return self.ne
