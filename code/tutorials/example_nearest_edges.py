@@ -7,7 +7,7 @@ ImportError? Move this file to code folder TEMPORATILY
 '''
 
 def main():
-    Delft = CityNetwork.load_graph('Delft')
+    Delft = CityNetwork.load_graph('Delft_bike')
 
     orig_yx_transf = (6803701, 484081)
     dest_yx_transf = (6794547, 483281)
@@ -25,7 +25,8 @@ def main():
         - interpolate: distance in meters to interpolate edges
         - cpus=1: the amount of cpu cores used
     '''
-    multicore_nearest_edge(Delft.graph, [orig_yx_transf[1]] * 1000, [orig_yx_transf[0]] * 1000, 10, cpus=None)
+    num = 1000
+    multicore_nearest_edge(Delft.graph, [orig_yx_transf[1]] * num, [orig_yx_transf[0]] * num, 10, cpus=1)
 
 if __name__ == '__main__':
     main()

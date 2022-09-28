@@ -7,6 +7,7 @@ import multiprocessing as mp
 from scipy.spatial import cKDTree
 
 import time
+import tqdm
 
 '''
 This script was originally developed by gboing in OSMnx. It
@@ -20,15 +21,11 @@ interpolation function.
 
 # Expects results in same coordinate system as graph.
 # Make sure you first transform coordinates and project graph.
+
 def _single_find_nearest_edge(X, Y, vertices, is_scalar):
     _, pos = cKDTree(vertices).query(np.array([X, Y]).T, k=1)
     ne = vertices.index[pos]
 
-    # # convert results to correct types for return
-    # ne = list(ne)
-    # if is_scalar:
-    #     ne = ne[0]
-    
     return ne
 
 def _interpolate_graph(G, X, Y, interpolate=10):
@@ -53,6 +50,7 @@ def _interpolate_graph(G, X, Y, interpolate=10):
     return X, Y, vertices, is_scalar
 
 def multicore_nearest_edge(graph, X, Y, interpolate, cpus=1):
+    
     """
     Find the nearest edge to a point or to each of several points.
 
@@ -89,10 +87,18 @@ def multicore_nearest_edge(graph, X, Y, interpolate, cpus=1):
 
     print(f"Interpolating {graph} for finding nearest edges...")
 
-    start = time.time()
-    X, Y, vertices, is_scalar = _interpolate_graph(graph, X, Y, interpolate=interpolate)
-    end = time.time()
-    print(f"Finished interpolating in {round(end-start, 2)}s...")
+    interpolation_result = None
+    
+    if isinstance(interpolate, int):
+        start = time.time()
+        X, Y, vertices, is_scalar = _interpolate_graph(graph, X, Y, interpolate=interpolate)
+        interpolation_result =[vertices, is_scalar]
+        end = time.time()
+        print(f"Finished interpolating in {round(end-start, 2)}s...")
+    elif isinstance(interpolate, list):
+        vertices, is_scalar = interpolate[0], interpolate[1]
+    else:
+        raise TypeError(f"Interpolate should be an integer or list with [X, Y, vertices, is_scalar]")
 
     start = time.time()
     # Figure out how many cpu cores are available
@@ -106,17 +112,17 @@ def multicore_nearest_edge(graph, X, Y, interpolate, cpus=1):
         # Return route_weight, route, partial_edge_1 and partial_edge_2
         result = [_single_find_nearest_edge(x, y, vertices, is_scalar) for x, y in zip(X, Y)]
     else:
-        print("WARNING: Make sure you put the multicore_nearest_edge function in a 'if __name__ == '__main__' statement!")
+        print("USER-WARNING: Make sure you put the multicore_nearest_edge function in a 'if __name__ == '__main__' statement!")
         # If multi-threading, calculate shortest paths in parallel           
         args = ((x, y, vertices, is_scalar) for x, y in zip(X, Y))
         pool = mp.Pool(cpus)
 
         # Add kwargs using partial method
-        sma = pool.starmap_async(_single_find_nearest_edge, args)
+        sma = pool.starmap_async(_single_find_nearest_edge, tqdm.tqdm(args, total=len(X)))
         result = sma.get()
         pool.close()
         pool.join()
     end = time.time()
 
     print(f'Found {len(X)} edges in {round(end-start, 2)}s with {cpus} CPUs...')
-    return result
+    return result, interpolation_result
