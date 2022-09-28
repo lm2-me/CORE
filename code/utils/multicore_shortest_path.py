@@ -197,9 +197,9 @@ def _single_shortest_path(G, orig_yx, dest_yx, orig_edge, dest_edge,
             if method == 'astar':
                 nx_route = nx.astar_path(G, orig_edge[0], dest_edge[0], weight=weight)
             elif method == 'bellman-ford':
-                nx_route = nx.shortest_path(G, orig_edge[0], dest_edge[0], weight=weight)
+                print('yass')
+                nx_route = nx.bellman_ford_path(G, orig_edge[0], dest_edge[0], weight=weight)
             elif method == 'dijkstra':
-                # Fall back on dijkstra
                 nx_route = nx.shortest_path(G, orig_edge[0], dest_edge[0], weight=weight)
             else:
                 raise ValueError('Method does not exist')

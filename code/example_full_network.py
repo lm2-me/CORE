@@ -25,15 +25,16 @@ It includes references to:
 @timer_decorator
 def main():
     ''' --- INITIALIZE --- '''
-    name = 'Rotterdam_bike'
+    name = 'Delft_center_walk'
     data_folder = 'data/'
-    vehicle_type = 'bike' # walk, bike, drive, all (See osmnx documentation)
+    vehicle_type = 'walk' # walk, bike, drive, all (See osmnx documentation)
+    destination = (52.007009, 4.362578)
 
     # Initialize CityNetwork object [N, S, E, W]
     # Delft City center: [52.018347, 52.005217, 4.369142, 4.350504]
     # Delft: [52.03, 51.96, 4.4, 4.3]
     # Rotterdam center (control): [51.926366, 51.909002, 4.48460, 4.455496]
-    coordinates = [51.926366, 51.909002, 4.48460, 4.455496]
+    coordinates = [52.018347, 52.005217, 4.369142, 4.350504]
 
 
     ''' --- GENERATE NETWORK ---
@@ -55,6 +56,11 @@ def main():
     # Further types available: overwrite_walk and overwrite_epv
     City.add_rel_attributes(overwrite_bike=16)
 
+    # Add an experience attribute to the graph, inputs are
+    # edges: list with edges to overwrite
+    # factors: list of factors between 0 and float(inf)
+    City.add_experience()
+
     # Project graph
     City.project_graph()
 
@@ -65,9 +71,11 @@ def main():
     City.convert_graph_edges_to_df()
     City.convert_graph_nodes_to_df()
 
+    City.graph_edges_df.to_csv('data/test.csv')
+
     # Save Pickle file
     City.save_graph(name, data_folder)
-    print('------------------------------------')
+    print('------------------------------------') 
 
 
     ''' --- PREPARE NETWORK ---
@@ -80,8 +88,9 @@ def main():
     coordinates = City.building_addr_df.loc[:, ['latitude', 'longitude']]
 
     # Convert the coordinates to tuples, destinations are one goal, will be hubs
-    origins = list(coordinates.itertuples(index=False, name=None))
-    destinations = [((51.916328, 4.473386))] * len(origins)
+    #origins = list(coordinates.itertuples(index=False, name=None))
+    origins = [(52.017501, 4.359047)]
+    destinations = [(destination)] * len(origins)
 
     # Extract the graph from the City CityNetwork
     graph = City.graph
@@ -158,7 +167,7 @@ def main():
 
     # Specify which attributes to show
     # Not sure which attributes are available? Use City.get_edge_attribute_types()
-    df = City.graph_edges_df.loc[edges, ['name', 'length', 'speed_kph', 'travel_time']]
+    df = City.graph_edges_df.loc[edges, ['name', 'length', 'speed_kph', 'travel_time', 'experience']]
     print(df)
     
     ''' --- PLOT RESULTS ---
@@ -168,7 +177,7 @@ def main():
     fig, ax = City.plot(paths, orig_yx_transf, dest_yx_transf, save=True)
     plt.show()
     
-    return
+    # return
 
 if __name__ == '__main__':
     main()
