@@ -31,7 +31,7 @@ def main():
     name = 'Delft_center_walk'
     data_folder = 'data/'
     vehicle_type = 'walk' # walk, bike, drive, all (See osmnx documentation)
-    destination = (52.007009, 4.362578)
+    destination = (52.006375, 4.361023)
 
     # Initialize CityNetwork object [N, S, E, W]
     # Delft City center: [52.018347, 52.005217, 4.369142, 4.350504]
@@ -57,15 +57,22 @@ def main():
     # Add speeds, lengths and distances to graph
     # Overwrite speed by using overwrite_bike=16
     # Further types available: overwrite_walk and overwrite_epv
-    City.add_rel_attributes(overwrite_bike=16)
+    City.add_rel_attributes(overwrite_bike=16, overwrite_walk=5)
 
     # Add an experience attribute to the graph, inputs are
     # edges: list with edges to overwrite
-    # factors: list of factors between 0 and float(inf)
-    City.add_experience()
+    # factors: list of factors between 0 and float(inf), lower is better
 
     # Project graph
     City.project_graph()
+
+    ''' EXAMPLE HIGHLIGHTS WITH EXPERIENCE
+    Assign bonus or penalty to the Oude Delft 
+    > 1 is bonus
+    < 1 is penalty
+
+    City.add_experience(['Oude Delft'], [10])
+    '''
 
     # Plot the CityNetwork
     # City.plot()
@@ -74,7 +81,8 @@ def main():
     City.convert_graph_edges_to_df()
     City.convert_graph_nodes_to_df()
 
-    City.graph_edges_df.to_csv('data/test.csv')
+    # Save graph edges to file
+    #  City.graph_edges_df.to_csv('data/test.csv')
 
     # Save Pickle file
     City.save_graph(name, data_folder)
@@ -84,15 +92,15 @@ def main():
     ''' --- PREPARE NETWORK ---
     Load the network from .pkl file. Transform the origin and destination to the unprojected space.'''
     # Load the CityNetwork class object
-    City = CityNetwork.load_graph(name, data_folder)
+    # City = CityNetwork.load_graph(name, data_folder)
 
     # Specify the coordinates for origin and destination
     # Get the coordinates from building dataframe   
     coordinates = City.building_addr_df.loc[:, ['latitude', 'longitude']]
 
     # Convert the coordinates to tuples, destinations are one goal, will be hubs
-    origins = list(coordinates.itertuples(index=False, name=None))
-    # origins = [(52.017501, 4.359047)]
+    #origins = list(coordinates.itertuples(index=False, name=None))
+    origins = [(52.015436, 4.354328)]
     destinations = [(destination)] * len(origins)
 
     # Extract the graph from the City CityNetwork
@@ -148,7 +156,8 @@ def main():
     # as input and it will use the original interpolation vertices.
     # In smaller batchsizes, such as 3 hubs to calculate nearest edges, it is recommended
     # to only use a single CPU.
-    hub_nearest_edges = multicore_nearest_edge(City.graph, [485220.1979700546], [6801392.870718836], City.interpolation, cpus=1)
+    hub_nearest_edges, _ = multicore_nearest_edge(City.graph, [485565], [6802120], City.interpolation, cpus=1)
+
 
     ''' --- MULTICORE SHORTEST PATH COMPUTATION ---
     Compute the shortest path between origin and destination, taking in account the position of the start and end in relation to the nearest edges. Input of orig, dest, orig_edge and dest_edge will interally be converted to a list, if inputed as tuples. '''    
@@ -175,7 +184,7 @@ def main():
 
     # Specify which attributes to show
     # Not sure which attributes are available? Use City.get_edge_attribute_types()
-    df = City.graph_edges_df.loc[edges, ['name', 'length', 'speed_kph', 'travel_time', 'experience']]
+    df = City.graph_edges_df.loc[edges, ['name', 'length', 'speed_kph', 'travel_time']]
     print(df)
     
     ''' --- PLOT RESULTS ---
@@ -183,7 +192,7 @@ def main():
     
     If you need different color and size settings for the plot, change them in the CityNetwork class (on top of class code)'''
     fig, ax = City.plot(paths, orig_yx_transf, dest_yx_transf, save=True)
-    plt.show()
+    # plt.show()
     
     # return
 

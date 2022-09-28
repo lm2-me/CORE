@@ -60,7 +60,7 @@ class CityNetwork():
     node_color = 'black'
     edge_linewidth = 1
     node_size=3
-    route_color = 'darkorange'
+    route_color = 'blue'
     route_width = 3
     cross_color = 'red'
 
@@ -168,12 +168,18 @@ class CityNetwork():
 
         self.graph = graph
 
-    def add_experience(self, edges=[], factors=[]):
+    def add_experience(self, names=[], factors=[]):
         nx.set_edge_attributes(self.graph, 0, 'experience')
 
-        for edge, factor in zip(edges, factors):
-            self.graph.edges[edge]['experience'] = self.graph.edges[edge]['length'] * factor
+        for osmid in self.graph.edges:
+            self.graph.edges[osmid]['experience'] = self.graph.edges[osmid]['length']
 
+        for factor in factors:
+            for osmid in self.graph.edges:
+                if 'name' in self.graph.edges[osmid]:
+                    if self.graph.edges[osmid]['name'] not in names:
+                        self.graph.edges[osmid]['experience'] = self.graph.edges[osmid]['experience'] * factor
+                
     def project_graph(self):
         self.graph = ox.project_graph(self.graph, to_crs="EPSG:3857")
 

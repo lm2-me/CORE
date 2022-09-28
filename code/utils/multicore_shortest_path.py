@@ -185,7 +185,6 @@ def _single_shortest_path(G, orig_yx, dest_yx, orig_edge, dest_edge,
             if method == 'astar':
                 nx_route = nx.astar_path(G, orig_edge[0], dest_edge[0], weight=weight)
             elif method == 'bellman-ford':
-                print('yass')
                 nx_route = nx.bellman_ford_path(G, orig_edge[0], dest_edge[0], weight=weight)
             elif method == 'dijkstra':
                 nx_route = nx.shortest_path(G, orig_edge[0], dest_edge[0], weight=weight)
@@ -288,6 +287,8 @@ def _single_shortest_path(G, orig_yx, dest_yx, orig_edge, dest_edge,
             route_weight = math.dist(orig_yx, dest_yx)
         elif weight == 'travel_time':
             route_weight = math.dist(orig_yx, dest_yx) * 1.3
+        elif weight == 'experience':
+            route_weight = math.dist(orig_yx, dest_yx)
         else:
             print(f'Cannot assign weight for {weight} with impossible route.')
 
