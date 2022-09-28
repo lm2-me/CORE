@@ -1,3 +1,6 @@
+
+### DO NOT USE THIS FILE, see 'hops' folder app.py ###
+
 # Import packages
 from flask import Flask
 import ghhops_server as hs

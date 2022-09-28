@@ -130,3 +130,5 @@ dmypy.json
 
 # Removing vscode configuration to not confuse other people
 .vscode
+
+code/data
