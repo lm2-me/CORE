@@ -296,11 +296,11 @@ def main():
 
     #GET USER INPUT
     #user_input = get_input()
-    #user_input = ([''], BBox)
+    user_input = ([''], BBox)
     
     #GET OVERPASS QUERIES
-    #addr_query = get_addr_query(user_input)
-    #building_query = get_building_query(user_input)
+    addr_query = get_addr_query(user_input)
+    building_query = get_building_query(user_input)
 
     #GET BUILDING & ADDR FROM OVERPASS
     #Error catching for overpass server load too high, this can happen decently frequently for the standard servers. Retrying afterwards with stronger public servers. 
