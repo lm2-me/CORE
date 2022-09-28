@@ -167,6 +167,12 @@ class CityNetwork():
 
         self.graph = graph
 
+    def add_experience(self, edges=[], factors=[]):
+        nx.set_edge_attributes(self.graph, 0, 'experience')
+
+        for edge, factor in zip(edges, factors):
+            self.graph.edges[edge]['experience'] = self.graph.edges[edge]['length'] * factor
+
     def project_graph(self):
         self.graph = ox.project_graph(self.graph, to_crs="EPSG:3857")
 
