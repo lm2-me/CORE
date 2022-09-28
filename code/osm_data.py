@@ -1,8 +1,11 @@
-from cmath import isnan
 import numpy as np
 import overpy
 import pandas as pd
-from owslib.wfs import WebFeatureService
+from pyproj import Transformer
+import requests
+import geopandas as gpd
+from shapely.geometry import Point
+from shapely.geometry import Polygon
 
   
 def get_input():
@@ -216,25 +219,76 @@ def load_csv(file_path):
     frame = pd.read_csv(file_path)
     return frame
 
-#UNFINISHED
-# def get_CBS():
-#     CBS_buurt_wijk_url = "https://service.pdok.nl/cbs/wijkenbuurten/2021/wfs/v1_0?request=getcapabilities&service=wfs"
-#     CBS_wfs = WebFeatureService(url=CBS_buurt_wijk_url)
-#     print(list(CBS_wfs.contents))
-#     print([operation.name for operation in CBS_wfs.operations])
-#     test_cbs = CBS_wfs.get_schema('cbs_buurten_2021')
-#     print(test_cbs)
-
-#OLD
-# def get_BAG(areas):
+def transform_coordinates(coordinate: tuple or list, from_crs="epsg:4326", to_crs="epsg:3857"):
+    # # WGS 84 -- WGS84 World Geodetic System 1984, used in GPS
+    # # More info at https://gist.github.com/keum/7441007
     
-#     BAG_url = "https://service.pdok.nl/lv/bag/wfs/v2_0?request=getCapabilities&service=WFS"
-#     BAG_wfs = WebFeatureService(url=BAG_url)
-#     print(list(BAG_wfs.contents))
-#     print([operation.name for operation in BAG_wfs.operations])
-#     test_BAG = BAG_wfs.get_schema('pand')
-#     test_pand = BAG_wfs.getfeature('pand', srsname='epsg:3857', outputFormat='xml', filter='Geometrygml:Polygongml:outerBoundaryIsgml:Linear' )
-#     print(test_BAG)
+    # From epsg:4326 to epsg:3857
+    transformer = Transformer.from_crs(from_crs, to_crs)
+    
+    if isinstance(coordinate, list): 
+        result = []
+        for coord in coordinate:
+            lat, lon = coord
+            x, y = transformer.transform(lat, lon)
+            result.append((y, x))
+
+            if lat < lon:
+                print('WARNING: latitude and longitude probably in wrong order in tuple! (Netherlands)')
+    elif isinstance(coordinate, tuple):
+        lat, lon = coordinate
+
+        x, y = transformer.transform(lat, lon)
+        result = (y, x)
+
+        if lat < lon:
+            print('WARNING: latitude and longitude probably in wrong order in tuple! (Netherlands)')
+    else:
+        raise TypeError('Inputs should be Tuple or List')
+
+    return result
+
+def get_CBS_query(BBox):
+    #https://service.pdok.nl/cbs/wijkenbuurten/2021/wfs/v1_0?
+    # service=wfs&version=2.0.0&srsName=EPSG:3857&
+    # request=GetFeature&
+    # typeName=cbs_buurten_2021&
+    # propertyName=(wijkenbuurten:geom,wijkenbuurten:buurtcode,wijkenbuurten:buurtnaam,wijkenbuurten:aantalHuishoudens)&
+    # bbox=80847.89481955457,443393.6485061926,86835.79389681925,449094.39207776875
+    database = "cbs_buurten_2021"
+    properties = ['geom','buurtcode','buurtnaam','aantalHuishoudens']
+    BBox_trans = [0,0,0,0]
+    for i in range(0,2):
+        coord = transform_coordinates((BBox[i],BBox[i+2]), from_crs='epsg:4326', to_crs='epsg:28992')
+        BBox_trans[i] = coord[0]
+        BBox_trans[i+2] = coord[1]
+
+    new_order = [3,1,2,0]
+    BBox = reorder_BBox(BBox_trans, new_order)
+    
+    query = "https://service.pdok.nl/cbs/wijkenbuurten/2021/wfs/v1_0?service=wfs&version=2.0.0&srsName=EPSG:3857&request=GetFeature&typeName="
+    query += database + '&propertyName=('
+    for c, property in enumerate(properties):
+        query += ('wijkenbuurten:'+ property)
+        if c+1 != len(properties):
+            query += ','
+    query += ')&bbox='
+    for c, i in enumerate(BBox):
+        query += (str(i))
+        if c+1 != len(BBox):
+            query += ','
+
+    return query
+
+def get_CBS_data(query):
+    response = requests.get(query)
+    with open('data/CBS.xml', 'wb') as file:
+        file.write(response.content)
+
+def add_CBS(file, building_addr):
+    data = gpd.read_file(file)
+    print(data.geometry)
+    
 
 
 def main():
@@ -245,11 +299,11 @@ def main():
 
     #GET USER INPUT
     #user_input = get_input()
-    user_input = ([''], BBox)
+    #user_input = ([''], BBox)
     
     #GET OVERPASS QUERIES
-    addr_query = get_addr_query(user_input)
-    building_query = get_building_query(user_input)
+    #addr_query = get_addr_query(user_input)
+    #building_query = get_building_query(user_input)
 
     #GET BUILDING & ADDR FROM OVERPASS
     #Error catching for overpass server load too high, this can happen decently frequently for the standard servers. Retrying afterwards with stronger public servers. 
@@ -275,13 +329,17 @@ def main():
     #     print("The script is currently unable to gather Overpass data, please retry manually in 30 seconds")
 
     #LOAD THE BUILDING AND ADDR DATA FROM CSV
-    addr_frame =  load_csv('data/addr_saved.csv')
-    building_frame = load_csv('data/building_saved.csv')
+    #addr_frame =  load_csv('data/addr_saved.csv')
+    #building_frame = load_csv('data/building_saved.csv')
 
-    building_addr = compare_building_addr(building_frame, addr_frame)
-    #building_addr = load_csv('data/building_addr.csv')
+    #building_addr = compare_building_addr(building_frame, addr_frame)
+    building_addr = load_csv('data/building_addr.csv')
 
-    #get_CBS()
+    CBS_query = get_CBS_query(BBox)
+    #get_CBS_data(CBS_query)
+    CBS_data = add_CBS('data/CBS.xml', building_addr)
+
+
 
 if __name__ == '__main__':
     main()
