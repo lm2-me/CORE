@@ -1,4 +1,5 @@
 from tkinter.ttk import Progressbar
+from matplotlib.ticker import IndexLocator
 import networkx as nx
 
 from shapely.geometry import Point
@@ -208,7 +209,7 @@ def _single_shortest_path(G, orig_yx, dest_yx, orig_edge, dest_edge,
         orig_partial_edge_2 = substring(orig_geo, 0, orig_clip, normalized=True)
         dest_partial_edge_1 = substring(dest_geo, dest_clip, 1, normalized=True)
         dest_partial_edge_2 = substring(dest_geo, 0, dest_clip, normalized=True)
-        
+
         # when there is no path available, edge case:
         if len(nx_route) == 0:
             orig_partial_edge = []
@@ -246,13 +247,16 @@ def _single_shortest_path(G, orig_yx, dest_yx, orig_edge, dest_edge,
                 dest_partial_edge = orig_partial_edge_2          
         # when routing across two or more edges
         elif len(nx_route) >= 3:
+            origin_overlapping = False
+            destination_overlapping = False
+            
             # check overlap with first route edge
             route_orig_edge = _get_edge_geometry(G, (nx_route[0], nx_route[1], 0))
             if route_orig_edge.intersects(orig_partial_edge_1) and route_orig_edge.intersects(orig_partial_edge_2):
-                nx_route = nx_route[1:]
-        
+                origin_overlapping = True
+
             # determine which origin partial edge to use
-            route_orig_edge = _get_edge_geometry(G, (nx_route[0], nx_route[1], 0)) 
+            route_orig_edge = _get_edge_geometry(G, (nx_route[1], nx_route[2], 0)) 
             if route_orig_edge.intersects(orig_partial_edge_1):
                 orig_partial_edge = orig_partial_edge_1
             else:
@@ -262,15 +266,23 @@ def _single_shortest_path(G, orig_yx, dest_yx, orig_edge, dest_edge,
             # check overlap with last route edge
             route_dest_edge = _get_edge_geometry(G, (nx_route[-2], nx_route[-1], 0))
             if route_dest_edge.intersects(dest_partial_edge_1) and route_dest_edge.intersects(dest_partial_edge_2):
-                nx_route = nx_route[:-1]
+                destination_overlapping = True
 
             # determine which destination partial edge to use
-            route_dest_edge = _get_edge_geometry(G, (nx_route[-2], nx_route[-1], 0))
+            route_dest_edge = _get_edge_geometry(G, (nx_route[-3], nx_route[-2], 0))
 
             if route_dest_edge.intersects(dest_partial_edge_1):
                 dest_partial_edge = dest_partial_edge_1
             else:
                 dest_partial_edge = dest_partial_edge_2
+            
+            if origin_overlapping:
+                nx_route = nx_route[1:]
+            if destination_overlapping:
+                nx_route = nx_route[:-1]
+            
+            if len(nx_route) == 1:
+                nx_route = []
     
         # final check
         if orig_partial_edge:

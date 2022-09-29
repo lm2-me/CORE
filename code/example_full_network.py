@@ -31,7 +31,7 @@ def main():
     name = 'Delft_center_walk'
     data_folder = 'data/'
     vehicle_type = 'walk' # walk, bike, drive, all (See osmnx documentation)
-    destination = (52.006375, 4.361023)
+    destination = (52.006375, 4.361023) # Random destination
 
     # Initialize CityNetwork object [N, S, E, W]
     # Delft City center: [52.018347, 52.005217, 4.369142, 4.350504]
@@ -71,7 +71,10 @@ def main():
     > 1 is bonus
     < 1 is penalty
 
-    City.add_experience(['Oude Delft'], [10])
+    Function takes as input: name/coordinate_tuple, factor
+    City.add_street_experience(['Oude Delft'], [10])
+    OR
+    City.add_coord_experience([(latitude, longitude)], [10])
     '''
 
     # Plot the CityNetwork
@@ -99,8 +102,8 @@ def main():
     coordinates = City.building_addr_df.loc[:, ['latitude', 'longitude']]
 
     # Convert the coordinates to tuples, destinations are one goal, will be hubs
-    #origins = list(coordinates.itertuples(index=False, name=None))
-    origins = [(52.015436, 4.354328)]
+    origins = list(coordinates.itertuples(index=False, name=None))
+    # origins = [(52.015505, 4.361185)]
     destinations = [(destination)] * len(origins)
 
     # Extract the graph from the City CityNetwork
@@ -109,7 +112,7 @@ def main():
 
     # Transform the start and origin to epsg:3857 (surface)
     orig_yx_transf = transform_coordinates(origins)
-    dest_yx_transf = transform_coordinates(destinations)   
+    dest_yx_transf = transform_coordinates(destinations) 
 
     ''' --- MULTICORE NEAREST EDGE COMPUTATION ---
     Find the nearest edges between the graph of Delft and origin and destination. This edge is used to figure out the shortest route in the beginning and end of the path. The origin and destination coordinates are combined so that the time consuming interpolation of the graph only takes place once. Afterwards, the found edges are split again in origin and destination.
@@ -156,7 +159,7 @@ def main():
     # as input and it will use the original interpolation vertices.
     # In smaller batchsizes, such as 3 hubs to calculate nearest edges, it is recommended
     # to only use a single CPU.
-    hub_nearest_edges, _ = multicore_nearest_edge(City.graph, [485565], [6802120], City.interpolation, cpus=1)
+    # hub_nearest_edges, _ = multicore_nearest_edge(City.graph, [485565], [6802120], City.interpolation, cpus=1)
 
 
     ''' --- MULTICORE SHORTEST PATH COMPUTATION ---
@@ -167,11 +170,13 @@ def main():
     end = time.time()
     print(f"Finished solving {len(paths)} paths in {round(end-start)}s.")
     # print(paths)
-    
 
     '''' --- PRINT RESULTS DATAFRAME---
     Although the paths have been found, you may want to see the results in a dataframe.
-    Make sure the shortest path algorithm is using input return_path=True'''
+    Make sure the shortest path algorithm is using input return_path=True
+    
+    Paths result contains the following information:
+    weight, nx_route: list, orig_linestring, dest_linestring'''
     print('------------------------------------')
 
     # Select a specific path:
@@ -191,10 +196,10 @@ def main():
     Plot one or multiple paths using the CityNetwork plot functions. Advantage of this function is the ability to print multiple routes instead of one, including the linestrings calculated using the taxicab method.
     
     If you need different color and size settings for the plot, change them in the CityNetwork class (on top of class code)'''
-    fig, ax = City.plot(paths, orig_yx_transf, dest_yx_transf, save=True)
+    fig, ax = City.plot(routes=paths, origins=orig_yx_transf, destinations=dest_yx_transf, annotations='name', save=True)
     # plt.show()
     
-    # return
+    return
 
 if __name__ == '__main__':
     main()
