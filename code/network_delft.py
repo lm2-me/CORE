@@ -118,13 +118,13 @@ class CityNetwork():
                 error = 0
                 for i in self.url:
                     try:
-                        building_frame = get_osm_building(building_query, url=i)
-                        building_frame.to_csv(building_path)
-                        print(f"OSM building data saved to {building_path}")
-
                         addr_frame = get_osm_addr(addr_query, url=i)
                         addr_frame.to_csv(adress_path)
                         print(f"OSM address data saved to {adress_path}")
+
+                        building_frame = get_osm_building(building_query, url=i)
+                        building_frame.to_csv(building_path)
+                        print(f"OSM building data saved to {building_path}")
                         break
                     except overpy.exception.OverpassGatewayTimeout as exc:
                         print(exc)
@@ -139,7 +139,7 @@ class CityNetwork():
                 
                 if error == len(self.url):
                     print("The request is currently unable to gather Overpass data, please retry manually in 30 seconds")
-            
+                    exit()
             # Load the building and adress data from csv
             addr_frame =  load_csv(adress_path)
             building_frame = load_csv(building_path)
