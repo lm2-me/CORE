@@ -28,14 +28,11 @@ import tqdm
     - Different shortest path algorithms can now be used, such as
     astar, dijkstra, bellman-ford.
     - A specific weight can be used to calculate shortest paths,
-    instead of only 'length', such as travel_time.
+    instead of only 'length', such as 'travel_time' or 'experience'.
     - The nearest_edge calculation has been moved to another
     function and optimized.
-'''
-
-'''
-PROBLEMS:
-- Length not correctly calculated due to coordinate system
+    - The code of Taxicab contains multiple bugs related to exceptional
+    cases for short routes. This package solves that issue.
 '''
 
 # Transform coordinates from 'sphere'(globe) to 'surface (map)
@@ -122,7 +119,6 @@ def _compute_route_weight(graph, route, weight, ls_orig, ls_dest, orig_edge, des
 
     return total_route_weight
 
-# My own implementation for shortest path
 def _get_edge_geometry(G, edge):
     '''
     Retrieve the points that make up a given edge.
@@ -160,6 +156,7 @@ def _get_edge_geometry(G, edge):
         (G.nodes[edge[1]]['x'], G.nodes[edge[1]]['y'])])
 
 # Single_shortest path (based on taxicab, but using a* algorithm)
+# Several bugs resolved by Job de Vogel
 def _single_shortest_path(G, orig_yx, dest_yx, orig_edge, dest_edge,
     method='dijkstra', 
     weight='length',
