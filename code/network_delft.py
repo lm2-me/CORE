@@ -4,7 +4,7 @@ and calculates shortest paths
 
 By: 
 Job de Vogel, TU Delft (framework, street data and shortest paths)
-Jirri van den Bos, TU Delft (housing)
+Jirri van den Bos, TU Delft (load building addresses)
 
 Classes:
     - CityNetwork
@@ -30,13 +30,6 @@ Decorators:
 
 Other functions:
     - main: calculate the shortest path
-
-TO DO:
-Manually implement shortest path over graph using
-the osmnx shortest path parallel computation method
-and the a* method of networkx.
-
-Also combine method with taxicab procedure
 """
 
 import osmnx as ox
@@ -45,8 +38,6 @@ import os.path
 import pickle
 import time
 import overpy
-
-from shapely.geometry import LineString
 
 from utils.multicore_shortest_path import multicore_shortest_path
 from utils.multicore_nearest_edges import multicore_nearest_edge
@@ -60,9 +51,13 @@ class CityNetwork():
     node_color = 'black'
     edge_linewidth = 1
     node_size=3
-    route_color = 'darkorange'
+    route_color = 'blue'
     route_width = 3
-    cross_color = 'red'
+    origin_color = 'purple'
+    destination_color = 'green'
+    marker_color = 'purple'
+    font_color = 'gray'
+    font_size = 7
 
     def __init__(self, name: str, coordinates: list, transport_type):
         self.name = name
@@ -75,7 +70,6 @@ class CityNetwork():
         self.url = [None, "https://maps.mail.ru/osm/tools/overpass/api/interpreter", "https://overpass.kumi.systems/api/interpreter", "https://lz4.overpass-api.de/api/interpreter"]
         self.ne = None
         self.interpolation = None
-
 
     def __repr__(self):
         return "<CityNetwork object of {}>".format(self.name)
@@ -168,11 +162,30 @@ class CityNetwork():
 
         self.graph = graph
 
-    def add_experience(self, edges=[], factors=[]):
+    def add_street_experience(self, names=[], factors=[]):
         nx.set_edge_attributes(self.graph, 0, 'experience')
 
-        for edge, factor in zip(edges, factors):
-            self.graph.edges[edge]['experience'] = self.graph.edges[edge]['length'] * factor
+        for osmid in self.graph.edges:
+            self.graph.edges[osmid]['experience'] = self.graph.edges[osmid]['length']
+
+        for factor in factors:
+            for osmid in self.graph.edges:
+                if 'name' in self.graph.edges[osmid]:
+                    if self.graph.edges[osmid]['name'] not in names:
+                        self.graph.edges[osmid]['experience'] = self.graph.edges[osmid]['experience'] * factor
+    
+    def add_coord_experience(self, street_uvk=[], factors=[]):
+        nx.set_edge_attributes(self.graph, 0, 'experience')
+        
+        for street, factor in zip(street_uvk, factors):
+            node_1, node_2, _ = street
+            print(street)
+
+            for edge in self.graph.edges:
+                if node_1 in edge and node_2 in edge:
+                    self.graph.edges[edge]['experience'] = self.graph.edges[edge]['length']
+                else:
+                    self.graph.edges[edge]['experience'] = self.graph.edges[edge]['length'] * factor
 
     def project_graph(self):
         self.graph = ox.project_graph(self.graph, to_crs="EPSG:3857")
@@ -272,55 +285,93 @@ class CityNetwork():
         return paths
 
     # Plot the map without any routes
-    # Copy from osmnx and taxicab, slightly changed to work for multiple routes
-    def plot(self, routes, origins, destinations, save=False):
+    # Copy from osmnx and taxicab, changed to work for multiple routes, annotations and marks
+    def plot(self, routes=None, origins=None, destinations=None, annotations=False, marks=[], save=False):
         print('Plotting figure...')
-        fig, ax = ox.plot_graph(self.graph, show=False, save=False, close=False,
+        if routes is not None and origins is not None and destinations is not None:
+            fig, ax = ox.plot_graph(self.graph, show=False, save=False, close=False,
+                figsize = self.figsize,
+                bgcolor = self.bgcolor,
+                edge_color = self.edge_color,
+                node_color = self.node_color,
+                edge_linewidth = self.edge_linewidth,
+                node_size = self.node_size)
+            
+            for route, orig, dest in zip(routes, origins, destinations):
+                weight, route_nodes, ls_orig, ls_dest = route
+
+                x, y  = [], []
+                for u, v in zip(route_nodes[:-1], route_nodes[1:]):
+                    # if there are parallel edges, select the shortest in length
+                    data = min(self.graph.get_edge_data(u, v).values(), key=lambda d: d["length"])
+                    if "geometry" in data:
+                        # if geometry attribute exists, add all its coords to list
+                        xs, ys = data["geometry"].xy
+                        x.extend(xs)
+                        y.extend(ys)
+                    else:
+                        # otherwise, the edge is a straight line from node to node
+                        x.extend((self.graph.nodes[u]["x"], self.graph.nodes[v]["x"]))
+                        y.extend((self.graph.nodes[u]["y"], self.graph.nodes[v]["y"]))
+                ax.plot(x, y, c=self.route_color, lw=self.route_width)
+                
+                if not isinstance(ls_orig, list):
+                    x, y = zip(*ls_orig.coords)
+                    ax.plot(x, y, c=self.route_color, lw=self.route_width)
+
+                if not isinstance(ls_dest, list):
+                    x, y = zip(*ls_dest.coords)
+                    ax.plot(x, y, c=self.route_color, lw=self.route_width)
+
+                ax.scatter(orig[1], orig[0],
+                    color=self.origin_color, marker='x', s=100, label='orig-point')
+                
+                ax.scatter(dest[1], dest[0],
+                    color=self.destination_color, marker='x', s=100, label='orig-point')
+
+            # Add an x to specific points
+            for mark in marks:
+                ax.scatter(mark[1], mark[0],
+                    color=self.marker_color, marker='x', s=100, label='Mark')
+
+            # Add annotations to the edges, can be names, travel_times etc.
+            if annotations:
+                graph = ox.get_undirected(self.graph)
+                for _, edge in ox.graph_to_gdfs(graph, nodes=False).fillna('').iterrows():
+                    c = edge['geometry'].centroid
+                    text = edge[annotations]
+                    ax.annotate(text, (c.x, c.y), c=self.font_color, fontsize=self.font_size)
+
+            fig, ax = ox.plot._save_and_show(fig, ax)
+
+            if save:
+                fig.savefig(f'data/plot_pngs/plot_{time.time()}.png')
+
+            return fig, ax
+        else:
+            # Only print the map
+            fig, ax = ox.plot_graph(self.graph, show=False, save=False, close=False,
             figsize = self.figsize,
             bgcolor = self.bgcolor,
             edge_color = self.edge_color,
             node_color = self.node_color,
             edge_linewidth = self.edge_linewidth,
             node_size = self.node_size)
-
-        for route, orig, dest in zip(routes, origins, destinations):
-            weight, route_nodes, ls_orig, ls_dest = route
-
-            x, y  = [], []
-            for u, v in zip(route_nodes[:-1], route_nodes[1:]):
-                # if there are parallel edges, select the shortest in length
-                data = min(self.graph.get_edge_data(u, v).values(), key=lambda d: d["length"])
-                if "geometry" in data:
-                    # if geometry attribute exists, add all its coords to list
-                    xs, ys = data["geometry"].xy
-                    x.extend(xs)
-                    y.extend(ys)
-                else:
-                    # otherwise, the edge is a straight line from node to node
-                    x.extend((self.graph.nodes[u]["x"], self.graph.nodes[v]["x"]))
-                    y.extend((self.graph.nodes[u]["y"], self.graph.nodes[v]["y"]))
-            ax.plot(x, y, c=self.route_color, lw=self.route_width)
             
-            if not isinstance(ls_orig, list):
-                x, y = zip(*ls_orig.coords)
-                ax.plot(x, y, c=self.route_color, lw=self.route_width)
+            # Add annotations to the edges, can be names, travel_times etc.
+            if annotations:
+                graph = ox.get_undirected(self.graph)
+                for _, edge in ox.graph_to_gdfs(graph, nodes=False).fillna('').iterrows():
+                    c = edge['geometry'].centroid
+                    text = edge[annotations]
+                    ax.annotate(text, (c.x, c.y), c=self.font_color, fontsize=self.font_size)
 
-            if not isinstance(ls_dest, list):
-                x, y = zip(*ls_dest.coords)
-                ax.plot(x, y, c=self.route_color, lw=self.route_width)
+            # Add an x to specific points
+            for mark in marks:
+                ax.scatter(mark[1], mark[0],
+                    color=self.marker_color, marker='x', s=100, label='Mark')
 
-            ax.scatter(orig[1], orig[0],
-                color=self.cross_color, marker='x', s=100, label='orig-point')
-            
-            ax.scatter(dest[1], dest[0],
-                color=self.cross_color, marker='x', s=100, label='orig-point')
-
-        fig, ax = ox.plot._save_and_show(fig, ax)
-
-        if save:
-            fig.savefig(f'data/plot_pngs/plot_{time.time()}.png')
-
-        return fig, ax
+            ox.plot._save_and_show(fig, ax)
 
     # Loading the graph as a pickle file avoids having to recalculate
     # attributes such as speed, length etc. and is way faster
