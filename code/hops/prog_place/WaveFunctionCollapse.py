@@ -271,4 +271,4 @@ print([tiles[item.tile_options[0]].height for item in grid])
 #make None object with all possible edges?
 
 
-#restart if no solution found
+#restart if no solution found?
