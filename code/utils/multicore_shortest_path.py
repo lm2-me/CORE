@@ -1,4 +1,5 @@
 from tkinter.ttk import Progressbar
+from matplotlib.ticker import IndexLocator
 import networkx as nx
 
 from shapely.geometry import Point
@@ -27,14 +28,11 @@ import tqdm
     - Different shortest path algorithms can now be used, such as
     astar, dijkstra, bellman-ford.
     - A specific weight can be used to calculate shortest paths,
-    instead of only 'length', such as travel_time.
+    instead of only 'length', such as 'travel_time' or 'experience'.
     - The nearest_edge calculation has been moved to another
     function and optimized.
-'''
-
-'''
-PROBLEMS:
-- Length not correctly calculated due to coordinate system
+    - The code of Taxicab contains multiple bugs related to exceptional
+    cases for short routes. This package solves that issue.
 '''
 
 # Transform coordinates from 'sphere'(globe) to 'surface (map)
@@ -67,18 +65,6 @@ def transform_coordinates(coordinate: tuple or list, from_crs="epsg:4326", to_cr
         raise TypeError('Inputs should be Tuple or List')
 
     return result
-
-# Expects results in same coordinate system as graph.
-# Make sure you first transform coordinates and project graph.
-def find_nearest_edge(graph, orig_yx, dest_yx):
-    """
-    Optimize using ox.distance.nearest_edges with interpolate, see documentation
-    """
-    # # # Find the closest edges to origin and destination
-    orig_edge = nearest_edges(graph, orig_yx[1], orig_yx[0]) 
-    dest_edge = nearest_edges(graph, dest_yx[1], dest_yx[0])
-
-    return orig_edge, dest_edge
 
 # Calculate the total weight of the path, including partial edges
 def _compute_route_weight(graph, route, weight, ls_orig, ls_dest, orig_edge, dest_edge):
@@ -133,7 +119,6 @@ def _compute_route_weight(graph, route, weight, ls_orig, ls_dest, orig_edge, des
 
     return total_route_weight
 
-# My own implementation for shortest path
 def _get_edge_geometry(G, edge):
     '''
     Retrieve the points that make up a given edge.
@@ -171,6 +156,7 @@ def _get_edge_geometry(G, edge):
         (G.nodes[edge[1]]['x'], G.nodes[edge[1]]['y'])])
 
 # Single_shortest path (based on taxicab, but using a* algorithm)
+# Several bugs resolved by Job de Vogel
 def _single_shortest_path(G, orig_yx, dest_yx, orig_edge, dest_edge,
     method='dijkstra', 
     weight='length',
@@ -197,9 +183,8 @@ def _single_shortest_path(G, orig_yx, dest_yx, orig_edge, dest_edge,
             if method == 'astar':
                 nx_route = nx.astar_path(G, orig_edge[0], dest_edge[0], weight=weight)
             elif method == 'bellman-ford':
-                nx_route = nx.shortest_path(G, orig_edge[0], dest_edge[0], weight=weight)
+                nx_route = nx.bellman_ford_path(G, orig_edge[0], dest_edge[0], weight=weight)
             elif method == 'dijkstra':
-                # Fall back on dijkstra
                 nx_route = nx.shortest_path(G, orig_edge[0], dest_edge[0], weight=weight)
             else:
                 raise ValueError('Method does not exist')
@@ -221,7 +206,7 @@ def _single_shortest_path(G, orig_yx, dest_yx, orig_edge, dest_edge,
         orig_partial_edge_2 = substring(orig_geo, 0, orig_clip, normalized=True)
         dest_partial_edge_1 = substring(dest_geo, dest_clip, 1, normalized=True)
         dest_partial_edge_2 = substring(dest_geo, 0, dest_clip, normalized=True)
-        
+
         # when there is no path available, edge case:
         if len(nx_route) == 0:
             orig_partial_edge = []
@@ -259,13 +244,16 @@ def _single_shortest_path(G, orig_yx, dest_yx, orig_edge, dest_edge,
                 dest_partial_edge = orig_partial_edge_2          
         # when routing across two or more edges
         elif len(nx_route) >= 3:
+            origin_overlapping = False
+            destination_overlapping = False
+            
             # check overlap with first route edge
             route_orig_edge = _get_edge_geometry(G, (nx_route[0], nx_route[1], 0))
             if route_orig_edge.intersects(orig_partial_edge_1) and route_orig_edge.intersects(orig_partial_edge_2):
-                nx_route = nx_route[1:]
-        
+                origin_overlapping = True
+
             # determine which origin partial edge to use
-            route_orig_edge = _get_edge_geometry(G, (nx_route[0], nx_route[1], 0)) 
+            route_orig_edge = _get_edge_geometry(G, (nx_route[1], nx_route[2], 0)) 
             if route_orig_edge.intersects(orig_partial_edge_1):
                 orig_partial_edge = orig_partial_edge_1
             else:
@@ -275,15 +263,23 @@ def _single_shortest_path(G, orig_yx, dest_yx, orig_edge, dest_edge,
             # check overlap with last route edge
             route_dest_edge = _get_edge_geometry(G, (nx_route[-2], nx_route[-1], 0))
             if route_dest_edge.intersects(dest_partial_edge_1) and route_dest_edge.intersects(dest_partial_edge_2):
-                nx_route = nx_route[:-1]
+                destination_overlapping = True
 
             # determine which destination partial edge to use
-            route_dest_edge = _get_edge_geometry(G, (nx_route[-2], nx_route[-1], 0))
+            route_dest_edge = _get_edge_geometry(G, (nx_route[-3], nx_route[-2], 0))
 
             if route_dest_edge.intersects(dest_partial_edge_1):
                 dest_partial_edge = dest_partial_edge_1
             else:
                 dest_partial_edge = dest_partial_edge_2
+            
+            if origin_overlapping:
+                nx_route = nx_route[1:]
+            if destination_overlapping:
+                nx_route = nx_route[:-1]
+            
+            if len(nx_route) == 1:
+                nx_route = []
     
         # final check
         if orig_partial_edge:
@@ -300,6 +296,8 @@ def _single_shortest_path(G, orig_yx, dest_yx, orig_edge, dest_edge,
             route_weight = math.dist(orig_yx, dest_yx)
         elif weight == 'travel_time':
             route_weight = math.dist(orig_yx, dest_yx) * 1.3
+        elif weight == 'experience':
+            route_weight = math.dist(orig_yx, dest_yx)
         else:
             print(f'Cannot assign weight for {weight} with impossible route.')
 

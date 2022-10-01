@@ -171,6 +171,4 @@ def convert_interior_boundaries(arr_base: np.ndarray):
     arr_interior_mask = arr_base_mask * arr_base_mask_padded[2:,2:] * arr_base_mask_padded[2:,:-2] * arr_base_mask_padded[:-2,2:] * arr_base_mask_padded[:-2, :-2]
     arr_updated_mask = np.where(arr_interior_mask == 1, 'i', arr_base)
 
-    print(arr_updated_mask)
-
     return arr_base

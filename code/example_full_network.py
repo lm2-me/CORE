@@ -2,6 +2,9 @@ import matplotlib.pyplot as plt
 
 from network_delft import CityNetwork, timer_decorator
 from utils.multicore_shortest_path import transform_coordinates
+from utils.multicore_nearest_edges import multicore_nearest_edge
+
+import osmnx as ox
 
 import time
 
@@ -25,15 +28,16 @@ It includes references to:
 @timer_decorator
 def main():
     ''' --- INITIALIZE --- '''
-    name = 'Rotterdam_bike'
+    name = 'Delft_center_walk'
     data_folder = 'data/'
-    vehicle_type = 'bike' # walk, bike, drive, all (See osmnx documentation)
+    vehicle_type = 'walk' # walk, bike, drive, all (See osmnx documentation)
+    destination = (52.006375, 4.361023) # Random destination
 
     # Initialize CityNetwork object [N, S, E, W]
     # Delft City center: [52.018347, 52.005217, 4.369142, 4.350504]
     # Delft: [52.03, 51.96, 4.4, 4.3]
     # Rotterdam center (control): [51.926366, 51.909002, 4.48460, 4.455496]
-    coordinates = [51.926366, 51.909002, 4.48460, 4.455496]
+    coordinates = [52.018347, 52.005217, 4.369142, 4.350504]
 
 
     ''' --- GENERATE NETWORK ---
@@ -53,10 +57,25 @@ def main():
     # Add speeds, lengths and distances to graph
     # Overwrite speed by using overwrite_bike=16
     # Further types available: overwrite_walk and overwrite_epv
-    City.add_rel_attributes(overwrite_bike=16)
+    City.add_rel_attributes(overwrite_bike=16, overwrite_walk=5)
+
+    # Add an experience attribute to the graph, inputs are
+    # edges: list with edges to overwrite
+    # factors: list of factors between 0 and float(inf), lower is better
 
     # Project graph
     City.project_graph()
+
+    ''' EXAMPLE HIGHLIGHTS WITH EXPERIENCE
+    Assign bonus or penalty to the Oude Delft 
+    > 1 is bonus
+    < 1 is penalty
+
+    Function takes as input: name/coordinate_tuple, factor
+    City.add_street_experience(['Oude Delft'], [10])
+    OR
+    City.add_coord_experience([(latitude, longitude)], [10])
+    '''
 
     # Plot the CityNetwork
     # City.plot()
@@ -65,15 +84,18 @@ def main():
     City.convert_graph_edges_to_df()
     City.convert_graph_nodes_to_df()
 
+    # Save graph edges to file
+    #  City.graph_edges_df.to_csv('data/test.csv')
+
     # Save Pickle file
     City.save_graph(name, data_folder)
-    print('------------------------------------')
+    print('------------------------------------') 
 
 
     ''' --- PREPARE NETWORK ---
     Load the network from .pkl file. Transform the origin and destination to the unprojected space.'''
     # Load the CityNetwork class object
-    City = CityNetwork.load_graph(name, data_folder)
+    # City = CityNetwork.load_graph(name, data_folder)
 
     # Specify the coordinates for origin and destination
     # Get the coordinates from building dataframe   
@@ -81,7 +103,8 @@ def main():
 
     # Convert the coordinates to tuples, destinations are one goal, will be hubs
     origins = list(coordinates.itertuples(index=False, name=None))
-    destinations = [((51.916328, 4.473386))] * len(origins)
+    # origins = [(52.015505, 4.361185)]
+    destinations = [(destination)] * len(origins)
 
     # Extract the graph from the City CityNetwork
     graph = City.graph
@@ -89,7 +112,7 @@ def main():
 
     # Transform the start and origin to epsg:3857 (surface)
     orig_yx_transf = transform_coordinates(origins)
-    dest_yx_transf = transform_coordinates(destinations)   
+    dest_yx_transf = transform_coordinates(destinations) 
 
     ''' --- MULTICORE NEAREST EDGE COMPUTATION ---
     Find the nearest edges between the graph of Delft and origin and destination. This edge is used to figure out the shortest route in the beginning and end of the path. The origin and destination coordinates are combined so that the time consuming interpolation of the graph only takes place once. Afterwards, the found edges are split again in origin and destination.
@@ -117,11 +140,10 @@ def main():
     for dest in dest_yx_transf:
         x.append(dest[1])
         y.append(dest[0])
-
+    
     # Find the nearest edges using multicore processing. If the CityNetwork class
     # already has nearest edges stored, it skips the computation.
     # Number in input indicating the interpolation distance in meters
-    
     print('Finding origin and destination edges...')
     edges = City.nearest_edges(x, y, 5, cpus=None)
 
@@ -131,7 +153,14 @@ def main():
     # Split the found edges in origins and destinations (in half)
     orig_edge = edges[:len(edges)//2]
     dest_edge = edges[len(edges)//2:]
-    
+
+    # Calculate nearest edges for destinations (hubs)
+    # Since interpolation already has been computed, you can use the City.interplation
+    # as input and it will use the original interpolation vertices.
+    # In smaller batchsizes, such as 3 hubs to calculate nearest edges, it is recommended
+    # to only use a single CPU.
+    # hub_nearest_edges, _ = multicore_nearest_edge(City.graph, [485565], [6802120], City.interpolation, cpus=1)
+
 
     ''' --- MULTICORE SHORTEST PATH COMPUTATION ---
     Compute the shortest path between origin and destination, taking in account the position of the start and end in relation to the nearest edges. Input of orig, dest, orig_edge and dest_edge will interally be converted to a list, if inputed as tuples. '''    
@@ -141,11 +170,13 @@ def main():
     end = time.time()
     print(f"Finished solving {len(paths)} paths in {round(end-start)}s.")
     # print(paths)
-    
 
     '''' --- PRINT RESULTS DATAFRAME---
     Although the paths have been found, you may want to see the results in a dataframe.
-    Make sure the shortest path algorithm is using input return_path=True'''
+    Make sure the shortest path algorithm is using input return_path=True
+    
+    Paths result contains the following information:
+    weight, nx_route: list, orig_linestring, dest_linestring'''
     print('------------------------------------')
 
     # Select a specific path:
@@ -165,8 +196,8 @@ def main():
     Plot one or multiple paths using the CityNetwork plot functions. Advantage of this function is the ability to print multiple routes instead of one, including the linestrings calculated using the taxicab method.
     
     If you need different color and size settings for the plot, change them in the CityNetwork class (on top of class code)'''
-    fig, ax = City.plot(paths, orig_yx_transf, dest_yx_transf, save=True)
-    plt.show()
+    fig, ax = City.plot(routes=paths, origins=orig_yx_transf, destinations=dest_yx_transf, annotations='name', save=True)
+    # plt.show()
     
     return
 

@@ -1,8 +1,12 @@
-from cmath import isnan
 import numpy as np
 import overpy
 import pandas as pd
-from owslib.wfs import WebFeatureService
+from pyproj import Transformer
+import requests
+import geopandas as gpd
+from multicore_shortest_path import transform_coordinates
+from shapely.geometry import Point
+from shapely.geometry import Polygon
 
 '''
 Retrieve OSM and BAG building data and adresses.
@@ -81,9 +85,9 @@ def reorder_BBox(BBox_in, new_order):
     return BBox_out
 
 #Generate the OVERPASS API query for addresses 
-def get_addr_query(input):
-    areas = input[0]
-    BBox = input[1]
+def get_addr_query(user_input):
+    areas = user_input[0]
+    BBox = user_input[1]
     #If a BBox is provided, use it
     if BBox == ['']:
         query = '[out:xml][timeout:30];('
@@ -103,9 +107,9 @@ def get_addr_query(input):
     return query
 
 #Generate the OVERPASS API query for buildings
-def get_building_query(input):
-    areas = input[0]
-    BBox = input[1]
+def get_building_query(user_input):
+    areas = user_input[0]
+    BBox = user_input[1]
     #If a BBox is provided, use it
     if BBox == ['']:
         query = '[out:json][timeout:100];('
@@ -191,7 +195,7 @@ def compare_building_addr(building_frame:pd.DataFrame, addr_frame:pd.DataFrame):
         building_addr[index][0] += 1
         if addr_array[c][2] != None:
             building_addr[index][1].append(addr_array[c][2])
-    
+    print(max_length[3:] + max_length)
     #Add the building Lat, Lon back to the array
     building_addr = np.concatenate((building_array, building_addr), axis=1)
 
@@ -202,6 +206,54 @@ def compare_building_addr(building_frame:pd.DataFrame, addr_frame:pd.DataFrame):
     building_addr = pd.DataFrame(building_addr, columns=['latitude', 'longitude', 'addr', 'amenity'])
 
     return building_addr
+
+def addxy_building_addr(building_addr):
+    coordinates = building_addr.loc[:, ['latitude', 'longitude']]
+    origins = list(coordinates.itertuples(index=False, name=None))
+    orig_yx_transf = transform_coordinates(origins)
+    building_addr["x"] = np.nan
+    building_addr["y"] = np.nan
+    for c,i in enumerate(orig_yx_transf):
+        building_addr.loc[c,['x']] = i[1]
+        building_addr.loc[c,['y']] = i[0]
+    print('Finished adding EPSG:3857 coordinates')
+    return building_addr
+
+def compare_building_cbs(building_addr, cbs_data, cbs_properties):
+    print('Assigning buildings to CBS buurt')
+    coordinates = building_addr.loc[:, ['x', 'y']]
+    coordinates = list(coordinates.itertuples(index=False, name=None))
+    points = []
+    for i in coordinates:
+        points.append(Point(i[0], i[1]))
+
+    
+    buurt_outlines = cbs_data.geometry
+    
+    print('Checking if a building is inside a buurt')
+    hold = np.empty(len(buurt_outlines))
+    result = np.empty(len(points))
+    max_length = ' / ' + str(len(points))
+    for c, pt in enumerate(points):
+        print(str(c) + max_length, end='\r')
+        for d, poly in enumerate(buurt_outlines):
+            hold[d] = poly.contains(pt)
+        result[c] = np.where(hold==1)[0]
+    print(max_length[3:] + max_length)
+
+    cbs_properties.remove('geom')
+    for i in cbs_properties:
+        building_addr[i] = np.nan
+
+    print('Adding the CBS data to the dataframe')
+    max_length = ' / ' + str(len(building_addr))
+    for i in range(0,len(building_addr)):
+        print(str(i) + max_length, end='\r')
+        for j in cbs_properties:
+            data = cbs_data.loc[result[i],[j]]
+            building_addr.at[i, j] = data[0]
+    print(max_length[3:] + max_length)
+    print(building_addr.head)
 
 #Optimized closest point comparison with numpy vector magic
 def closest_node(node, nodes):
@@ -214,70 +266,165 @@ def load_csv(file_path):
     frame = pd.read_csv(file_path)
     return frame
 
-#UNFINISHED
-# def get_CBS():
-#     CBS_buurt_wijk_url = "https://service.pdok.nl/cbs/wijkenbuurten/2021/wfs/v1_0?request=getcapabilities&service=wfs"
-#     CBS_wfs = WebFeatureService(url=CBS_buurt_wijk_url)
-#     print(list(CBS_wfs.contents))
-#     print([operation.name for operation in CBS_wfs.operations])
-#     test_cbs = CBS_wfs.get_schema('cbs_buurten_2021')
-#     print(test_cbs)
-
-#OLD
-# def get_BAG(areas):
+def get_CBS_query(user_input, cbs_properties, buurt_index_skip=[]):
+    #https://service.pdok.nl/cbs/wijkenbuurten/2021/wfs/v1_0?
+    # service=wfs&version=2.0.0&srsName=EPSG:3857&
+    # request=GetFeature&
+    # typeName=cbs_buurten_2021&
+    # propertyName=(wijkenbuurten:geom,wijkenbuurten:buurtcode,wijkenbuurten:buurtnaam,wijkenbuurten:aantalHuishoudens)&
+    # bbox=80847.89481955457,443393.6485061926,86835.79389681925,449094.39207776875
+    areas = user_input[0]
+    BBox = user_input[1]
+    database = "cbs_buurten_2021"
     
-#     BAG_url = "https://service.pdok.nl/lv/bag/wfs/v2_0?request=getCapabilities&service=WFS"
-#     BAG_wfs = WebFeatureService(url=BAG_url)
-#     print(list(BAG_wfs.contents))
-#     print([operation.name for operation in BAG_wfs.operations])
-#     test_BAG = BAG_wfs.get_schema('pand')
-#     test_pand = BAG_wfs.getfeature('pand', srsname='epsg:3857', outputFormat='xml', filter='Geometrygml:Polygongml:outerBoundaryIsgml:Linear' )
-#     print(test_BAG)
+    query = "https://service.pdok.nl/cbs/wijkenbuurten/2021/wfs/v1_0?service=wfs&version=2.0.0&srsName=EPSG:3857&request=GetFeature&typeName="
+    query += database + '&propertyName=('
+    for c, property in enumerate(cbs_properties):
+        query += ('wijkenbuurten:'+ property)
+        if c+1 != len(cbs_properties):
+            query += ','
+
+    if BBox == ['']:
+        buurten = []
+        file_path = 'Data/runtime/test.xml'
+        for c, i in enumerate(areas):
+            query_current = query + ')&filter=<ogc:Filter><ogc:PropertyIsEqualTo><ogc:PropertyName>gemeentenaam</ogc:PropertyName><ogc:Literal>'+i+'</ogc:Literal></ogc:PropertyIsEqualTo></ogc:Filter>'
+            get_CBS_data(query_current, file_path)
+            cbs_data = read_CBS(file_path)
+            if len(cbs_data.buurtcode) == 0:
+                print(i + ' was not found when looking for municipalities, looking for '+i+ ' in buurten')
+                query_current = query + ')&filter=<ogc:Filter><ogc:PropertyIsEqualTo><ogc:PropertyName>buurtnaam</ogc:PropertyName><ogc:Literal>'+i+'</ogc:Literal></ogc:PropertyIsEqualTo></ogc:Filter>'
+                get_CBS_data(query_current, file_path)
+                cbs_data = read_CBS(file_path)
+                buurten_hold = cbs_data['buurtcode']
+
+                areas[c] = 'buurt'
+                if len(cbs_data) == 0:
+                    print(i+ ' will be skipped because it could not be found as a municipality or buurt')
+                    areas.pop(c)
+                    pass
+                elif len(cbs_data)>1:
+                    selection = list(range(0,len(cbs_data)))
+                    if buurt_index_skip == []:
+                        print(i+' was found in multiple occasions:')
+                        print(cbs_data[['buurtcode', 'buurtnaam', 'gemeentenaam']])
+                        select_input = input('Optional: input index exlusions (comma seperated)')
+                        if select_input != '':
+                            exclusion = [int(x) for x in select_input.split(',')]
+                            selection = list(set(selection) - set(exclusion))
+                    else:
+                        print(i+' was found multiple times as a buurt, exclusion skip applied')
+                        selection = list(set(selection) - set(buurt_index_skip))
+                    for j in selection:
+                        buurten.append(buurten_hold[j])
+                else:
+                    print(i+' was found once as a buurt' )
+                    buurten.append(buurten_hold[0])
+        
+        query += ')&filter=<ogc:Filter>'
+        if len(areas)>1:
+            query += '<ogc:Or>'
+            for i in areas:
+                if i != 'buurt':
+                    query += '<ogc:PropertyIsEqualTo><ogc:PropertyName>gemeentenaam</ogc:PropertyName><ogc:Literal>'+i+'</ogc:Literal></ogc:PropertyIsEqualTo>'
+            for i in buurten:
+                    query += '<ogc:PropertyIsEqualTo><ogc:PropertyName>buurtcode</ogc:PropertyName><ogc:Literal>'+i+'</ogc:Literal></ogc:PropertyIsEqualTo>'
+            query += '</ogc:Or>'
+        else:
+            if areas[0] != 'buurt':
+                query += '<ogc:PropertyIsEqualTo><ogc:PropertyName>gemeentenaam</ogc:PropertyName><ogc:Literal>'+areas[0]+'</ogc:Literal></ogc:PropertyIsEqualTo>'
+            for i in buurten:
+                query += '<ogc:PropertyIsEqualTo><ogc:PropertyName>buurtcode</ogc:PropertyName><ogc:Literal>'+i+'</ogc:Literal></ogc:PropertyIsEqualTo>'
+        query += '</ogc:Filter>'
+        return(query)
+
+    else:
+        BBox_trans = [0,0,0,0]
+        for i in range(0,2):
+            coord = transform_coordinates((BBox[i],BBox[i+2]), from_crs='epsg:4326', to_crs='epsg:28992')
+            BBox_trans[i] = coord[0]
+            BBox_trans[i+2] = coord[1]
+
+        new_order = [3,1,2,0]
+        BBox = reorder_BBox(BBox_trans, new_order)
+        
+
+        query += ')&bbox='
+        for c, i in enumerate(BBox):
+            query += (str(i))
+            if c+1 != len(BBox):
+                query += ','
+
+        return query
+
+def get_CBS_data(query, path):
+    response = requests.get(query)
+    with open(path, 'wb') as file:
+        file.write(response.content)
+
+def read_CBS(path):
+    data = gpd.read_file(path)
+    return data
+    
 
 def main():
     #BBOX IN DEGREES, ORDERED: [N, S, E, W]
     #Old_BBox = [52.03, 51.96, 4.4, 4.3]
-    BBox = [52.026, 51.974, 4.394, 4.308]
+    #BBox = [52.026, 51.974, 4.394, 4.308]
+    BBox = [52.018347, 52.005217, 4.369142, 4.350504]
     url = [None, "https://maps.mail.ru/osm/tools/overpass/api/interpreter", "https://overpass.kumi.systems/api/interpreter", "https://lz4.overpass-api.de/api/interpreter"]
 
     #GET USER INPUT
     #user_input = get_input()
-    user_input = ([''], BBox)
+    #user_input = ([''], BBox)
+    user_input = (['Delft', 'Den Hoorn'], [''])
+
+    cbs_properties = ['geom','gemiddeldeHuishoudsgrootte','buurtcode','buurtnaam','gemeentenaam']
+
     
     #GET OVERPASS QUERIES
-    addr_query = get_addr_query(user_input)
-    building_query = get_building_query(user_input)
+    # addr_query = get_addr_query(user_input)
+    # building_query = get_building_query(user_input)
 
     #GET BUILDING & ADDR FROM OVERPASS
     #Error catching for overpass server load too high, this can happen decently frequently for the standard servers. Retrying afterwards with stronger public servers. 
     #These however can return a vague error in http: "TypeError: '<=' not supported between instances of 'str' and 'int'". Reason unclear, happens infrequently and seems temporary. Retrying is the best solution for now
-    error = 0
-    for i in url:
-        try:
-            building_frame = get_osm_building(building_query, url=i)
-            addr_frame = get_osm_addr(addr_query, url=i)
-            ("Overpass Query succesfully completed")
-            break
-        except overpy.exception.OverpassGatewayTimeout as exc:
-            print(exc)
-            error += 1
-            print("Overpass Server Load too high for standard servers, retrying with different url")
-            pass
-        except TypeError as exc:
-            print(exc)
-            error += 1
-            print("Trying non standard server did not return a valid result, retrying with different server")
-            pass
-    if error == len(url):
-        print("The script is currently unable to gather Overpass data, please retry manually in 30 seconds")
+    # error = 0
+    # for i in url:
+    #     try:
+    #         building_frame = get_osm_building(building_query, url=i)
+    #         addr_frame = get_osm_addr(addr_query, url=i)
+    #         ("Overpass Query succesfully completed")
+    #         break
+    #     except overpy.exception.OverpassGatewayTimeout as exc:
+    #         print(exc)
+    #         error += 1
+    #         print("Overpass Server Load too high for standard servers, retrying with different url")
+    #         pass
+    #     except TypeError as exc:
+    #         print(exc)
+    #         error += 1
+    #         print("Trying non standard server did not return a valid result, retrying with different server")
+    #         pass
+    # if error == len(url):
+    #     print("The script is currently unable to gather Overpass data, please retry manually in 30 seconds")
 
     #LOAD THE BUILDING AND ADDR DATA FROM CSV
-    addr_frame =  load_csv('data/addr_saved.csv')
-    building_frame = load_csv('data/building_saved.csv')
+    #addr_frame =  load_csv('data/Delft_center_walk_addresses.csv')
+    #building_frame = load_csv('data/Delft_center_walk_buildings.csv')
 
-    building_addr = compare_building_addr(building_frame, addr_frame)
+    #building_addr = compare_building_addr(building_frame, addr_frame)
+    #building_addr = addxy_building_addr(building_addr)
+    
+    #building_addr = load_csv('data/building_addr.csv')
 
-    #get_CBS()
+    CBS_query = get_CBS_query(user_input, cbs_properties, buurt_index_skip=[0])
+    print(CBS_query)
+    #get_CBS_data(CBS_query, 'data/runtime/CBS.xml')
+    #CBS_data = read_CBS('data/runtime/CBS.xml')
+
+    #test = compare_building_cbs(building_addr, CBS_data, cbs_properties)
+
 
 if __name__ == '__main__':
     main()

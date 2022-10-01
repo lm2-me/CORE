@@ -87,10 +87,18 @@ def multicore_nearest_edge(graph, X, Y, interpolate, cpus=1):
 
     print(f"Interpolating {graph} for finding nearest edges...")
 
-    start = time.time()
-    X, Y, vertices, is_scalar = _interpolate_graph(graph, X, Y, interpolate=interpolate)
-    end = time.time()
-    print(f"Finished interpolating in {round(end-start, 2)}s...")
+    interpolation_result = None
+    
+    if isinstance(interpolate, int):
+        start = time.time()
+        X, Y, vertices, is_scalar = _interpolate_graph(graph, X, Y, interpolate=interpolate)
+        interpolation_result =[vertices, is_scalar]
+        end = time.time()
+        print(f"Finished interpolating in {round(end-start, 2)}s...")
+    elif isinstance(interpolate, list):
+        vertices, is_scalar = interpolate[0], interpolate[1]
+    else:
+        raise TypeError(f"Interpolate should be an integer or list with [X, Y, vertices, is_scalar]")
 
     start = time.time()
     # Figure out how many cpu cores are available
@@ -117,4 +125,4 @@ def multicore_nearest_edge(graph, X, Y, interpolate, cpus=1):
     end = time.time()
 
     print(f'Found {len(X)} edges in {round(end-start, 2)}s with {cpus} CPUs...')
-    return result
+    return result, interpolation_result
