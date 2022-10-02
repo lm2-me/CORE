@@ -4,7 +4,7 @@ import pandas as pd
 from pyproj import Transformer
 import requests
 import geopandas as gpd
-from multicore_shortest_path import transform_coordinates
+from utils.multicore_shortest_path import transform_coordinates
 from shapely.geometry import Point
 from shapely.geometry import Polygon
 
@@ -203,14 +203,19 @@ def compare_building_addr(building_frame:pd.DataFrame, addr_frame:pd.DataFrame):
     mask = (building_addr[:, 2] != 0)
     building_addr = building_addr[mask, :]
 
+    #Exporting to a dataframe
     building_addr = pd.DataFrame(building_addr, columns=['latitude', 'longitude', 'addr', 'amenity'])
 
     return building_addr
 
+#Function to add EPSG:3857 X,Y coordinates to the building_addr dataframe
 def addxy_building_addr(building_addr):
+    #Creating and transforming tuples of lat,lon
     coordinates = building_addr.loc[:, ['latitude', 'longitude']]
     origins = list(coordinates.itertuples(index=False, name=None))
     orig_yx_transf = transform_coordinates(origins)
+
+    #Adding the transformed tuples to the dataframe
     building_addr["x"] = np.nan
     building_addr["y"] = np.nan
     for c,i in enumerate(orig_yx_transf):
@@ -219,17 +224,20 @@ def addxy_building_addr(building_addr):
     print('Finished adding EPSG:3857 coordinates')
     return building_addr
 
+#Function to add CBS Buurt data to the building_addr dataframe
 def compare_building_cbs(building_addr, cbs_data, cbs_properties):
     print('Assigning buildings to CBS buurt')
+    #Creating shapely points of X,Y coordinates
     coordinates = building_addr.loc[:, ['x', 'y']]
     coordinates = list(coordinates.itertuples(index=False, name=None))
     points = []
     for i in coordinates:
         points.append(Point(i[0], i[1]))
 
-    
+    #Getting Buurt Polygon from CBS
     buurt_outlines = cbs_data.geometry
     
+    #Check in which Buurt a building is located
     print('Checking if a building is inside a buurt')
     hold = np.empty(len(buurt_outlines))
     result = np.empty(len(points))
@@ -238,13 +246,15 @@ def compare_building_cbs(building_addr, cbs_data, cbs_properties):
         print(str(c) + max_length, end='\r')
         for d, poly in enumerate(buurt_outlines):
             hold[d] = poly.contains(pt)
-        result[c] = np.where(hold==1)[0]
+        result[c] = np.asarray(hold==1).nonzero()[0]
     print(max_length[3:] + max_length)
 
+    #Remove geom column and add empty columns for new data
     cbs_properties.remove('geom')
     for i in cbs_properties:
         building_addr[i] = np.nan
 
+    #Adding the Buurt data to the dataframe
     print('Adding the CBS data to the dataframe')
     max_length = ' / ' + str(len(building_addr))
     for i in range(0,len(building_addr)):
@@ -253,9 +263,10 @@ def compare_building_cbs(building_addr, cbs_data, cbs_properties):
             data = cbs_data.loc[result[i],[j]]
             building_addr.at[i, j] = data[0]
     print(max_length[3:] + max_length)
-    print(building_addr.head)
+    building_addr['people'] = building_addr['addr'] * building_addr['gemiddeldeHuishoudsgrootte']
+    return building_addr
 
-#Optimized closest point comparison with numpy vector magic
+#Optimized closest point comparison with numpy vector math
 def closest_node(node, nodes):
     deltas = nodes - node
     dist_2 = np.einsum('ij,ij->i', deltas, deltas)
@@ -267,16 +278,15 @@ def load_csv(file_path):
     return frame
 
 def get_CBS_query(user_input, cbs_properties, buurt_index_skip=[]):
-    #https://service.pdok.nl/cbs/wijkenbuurten/2021/wfs/v1_0?
-    # service=wfs&version=2.0.0&srsName=EPSG:3857&
-    # request=GetFeature&
-    # typeName=cbs_buurten_2021&
-    # propertyName=(wijkenbuurten:geom,wijkenbuurten:buurtcode,wijkenbuurten:buurtnaam,wijkenbuurten:aantalHuishoudens)&
-    # bbox=80847.89481955457,443393.6485061926,86835.79389681925,449094.39207776875
+    #Example of a CBS Query:
+    #https://service.pdok.nl/cbs/wijkenbuurten/2021/wfs/v1_0?service=wfs&version=2.0.0&srsName=EPSG:3857&request=GetFeature&typeName=cbs_buurten_2021&propertyName=(wijkenbuurten:geom,wijkenbuurten:buurtcode,wijkenbuurten:buurtnaam,wijkenbuurten:aantalHuishoudens)&bbox=80847.89481955457,443393.6485061926,86835.79389681925,449094.39207776875
+    
+    #Split user input
     areas = user_input[0]
     BBox = user_input[1]
     database = "cbs_buurten_2021"
     
+    #Add base and typename requests to the query
     query = "https://service.pdok.nl/cbs/wijkenbuurten/2021/wfs/v1_0?service=wfs&version=2.0.0&srsName=EPSG:3857&request=GetFeature&typeName="
     query += database + '&propertyName=('
     for c, property in enumerate(cbs_properties):
@@ -284,44 +294,54 @@ def get_CBS_query(user_input, cbs_properties, buurt_index_skip=[]):
         if c+1 != len(cbs_properties):
             query += ','
 
+    #If placenames are defined and a bounding box is not
     if BBox == ['']:
         buurten = []
+        #Establish a test directory to test for query results
         file_path = 'Data/runtime/test.xml'
         for c, i in enumerate(areas):
+            #First run as if every input is a municipality
             query_current = query + ')&filter=<ogc:Filter><ogc:PropertyIsEqualTo><ogc:PropertyName>gemeentenaam</ogc:PropertyName><ogc:Literal>'+i+'</ogc:Literal></ogc:PropertyIsEqualTo></ogc:Filter>'
             get_CBS_data(query_current, file_path)
             cbs_data = read_CBS(file_path)
+            #If a placename is not found check if it does exist as a buurtname
             if len(cbs_data.buurtcode) == 0:
                 print(i + ' was not found when looking for municipalities, looking for '+i+ ' in buurten')
                 query_current = query + ')&filter=<ogc:Filter><ogc:PropertyIsEqualTo><ogc:PropertyName>buurtnaam</ogc:PropertyName><ogc:Literal>'+i+'</ogc:Literal></ogc:PropertyIsEqualTo></ogc:Filter>'
                 get_CBS_data(query_current, file_path)
                 cbs_data = read_CBS(file_path)
+                
+                #Add results of buurtsearch to list, change area input to 'buurt'
                 buurten_hold = cbs_data['buurtcode']
-
                 areas[c] = 'buurt'
+                #If no result is found as buurt: pass
                 if len(cbs_data) == 0:
                     print(i+ ' will be skipped because it could not be found as a municipality or buurt')
                     areas.pop(c)
                     pass
+                #If multiple results are found give the option to exclude choices (e.g. Den Hoorn on Texel)
                 elif len(cbs_data)>1:
                     selection = list(range(0,len(cbs_data)))
                     if buurt_index_skip == []:
-                        print(i+' was found in multiple occasions:')
+                        print(i+' was found multiple times:')
                         print(cbs_data[['buurtcode', 'buurtnaam', 'gemeentenaam']])
                         select_input = input('Optional: input index exlusions (comma seperated)')
                         if select_input != '':
                             exclusion = [int(x) for x in select_input.split(',')]
                             selection = list(set(selection) - set(exclusion))
+                    #Option is given to provide a exclusion indices to skip input
                     else:
                         print(i+' was found multiple times as a buurt, exclusion skip applied')
                         selection = list(set(selection) - set(buurt_index_skip))
+                    #Add the selected buurten to a list
                     for j in selection:
                         buurten.append(buurten_hold[j])
                 else:
                     print(i+' was found once as a buurt' )
                     buurten.append(buurten_hold[0])
-        
+        #After establishing which municipalities and buurten are required, the rest of the query is finished
         query += ')&filter=<ogc:Filter>'
+        #If multiple filters are to be added and 'Or' statement is requiredt
         if len(areas)>1:
             query += '<ogc:Or>'
             for i in areas:
@@ -338,22 +358,19 @@ def get_CBS_query(user_input, cbs_properties, buurt_index_skip=[]):
         query += '</ogc:Filter>'
         return(query)
 
+    #If a BBOX is provided, use it
     else:
+        #Transform and reorder the bbox to be CBS compatible
         BBox_trans = [0,0,0,0]
         for i in range(0,2):
             coord = transform_coordinates((BBox[i],BBox[i+2]), from_crs='epsg:4326', to_crs='epsg:28992')
             BBox_trans[i] = coord[0]
             BBox_trans[i+2] = coord[1]
-
         new_order = [3,1,2,0]
         BBox = reorder_BBox(BBox_trans, new_order)
-        
 
-        query += ')&bbox='
-        for c, i in enumerate(BBox):
-            query += (str(i))
-            if c+1 != len(BBox):
-                query += ','
+        #Build the rest of the query by adding the BBox
+        query += (')&bbox=' +str(BBox).strip("[]"))
 
         return query
 
@@ -376,8 +393,8 @@ def main():
 
     #GET USER INPUT
     #user_input = get_input()
-    #user_input = ([''], BBox)
-    user_input = (['Delft', 'Den Hoorn'], [''])
+    user_input = ([''], BBox)
+    #user_input = (['Delft', 'Den Hoorn'], [''])
 
     cbs_properties = ['geom','gemiddeldeHuishoudsgrootte','buurtcode','buurtnaam','gemeentenaam']
 
@@ -410,20 +427,20 @@ def main():
     #     print("The script is currently unable to gather Overpass data, please retry manually in 30 seconds")
 
     #LOAD THE BUILDING AND ADDR DATA FROM CSV
-    #addr_frame =  load_csv('data/Delft_center_walk_addresses.csv')
-    #building_frame = load_csv('data/Delft_center_walk_buildings.csv')
+    addr_frame =  load_csv('data/Delft_center_walk_addresses.csv')
+    building_frame = load_csv('data/Delft_center_walk_buildings.csv')
 
-    #building_addr = compare_building_addr(building_frame, addr_frame)
-    #building_addr = addxy_building_addr(building_addr)
+    building_addr = compare_building_addr(building_frame, addr_frame)
+    building_addr = addxy_building_addr(building_addr)
     
     #building_addr = load_csv('data/building_addr.csv')
 
     CBS_query = get_CBS_query(user_input, cbs_properties, buurt_index_skip=[0])
     print(CBS_query)
     #get_CBS_data(CBS_query, 'data/runtime/CBS.xml')
-    #CBS_data = read_CBS('data/runtime/CBS.xml')
+    CBS_data = read_CBS('data/runtime/CBS.xml')
 
-    #test = compare_building_cbs(building_addr, CBS_data, cbs_properties)
+    test = compare_building_cbs(building_addr, CBS_data, cbs_properties)
 
 
 if __name__ == '__main__':
