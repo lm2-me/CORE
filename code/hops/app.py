@@ -82,7 +82,8 @@ def placemodules(srfpts_tree, cost_function_tree, lable_array, module_use_tree, 
     return siteprocessing.place_modules(srfpts_tree, cost_function_tree, lable_array, module_use_tree, module_geometry_list, module_mask_tree)
 
 
-### components written by 
+### components written by Seb
+
 
 
 ### END COMPONENT REGISTRATION
