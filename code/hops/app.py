@@ -3,6 +3,7 @@ import ghhops_server as hs
 
 ### Add additional component files under here
 import prog_place.siteprocessing as siteprocessing
+import WFC.WaveFunctionCollapse as WaveFunctionCollapse
 
 ### END COMPONENT FILES
 
@@ -83,7 +84,24 @@ def placemodules(srfpts_tree, cost_function_tree, lable_array, module_use_tree, 
 
 
 ### components written by Seb
-
+@hops.component(
+    "/wavefunctioncollapse",
+    name="WaveFunctionCollapse",
+    description="Create surface structure from tiles using WFC",
+    icon="examples/pointat.png",
+    inputs=[
+        hs.HopsNumber("Dim x", "X", "Dimension in x of grid"),
+        hs.HopsNumber("Dim y", "Y", "Dimension in y of grid"),
+        hs.HopsNumber("Max Height", "H", "Max height offset of tile allowed"),
+    ],
+    outputs=[
+        hs.HopsPoint("Name Indices", "N", "Name index of tiles to place", access=hs.HopsParamAccess.LIST),
+        hs.HopsPoint("Rotations", "R", "Rotation of tile", access=hs.HopsParamAccess.LIST),
+        hs.HopsPoint("Heights", "H", "Height offset for tile", access=hs.HopsParamAccess.LIST),
+    ]
+)
+def runWFC(dx, dy, max_height):
+    return WaveFunctionCollapse.runWFC(name_index, rotation, height)
 
 
 ### END COMPONENT REGISTRATION
