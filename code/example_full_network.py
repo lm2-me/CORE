@@ -50,7 +50,8 @@ def main():
     City.load_osm_graph(data_folder + name + '.osm')
     City.load_building_addr(data_folder + name + '_building_addresses.csv', 
         data_folder + name + '_buildings.csv', 
-        data_folder + name + '_addresses.csv')
+        data_folder + name + '_addresses.csv',
+        data_folder +'runtime/'+ name + '_cbs.xml')
     
     print(City.building_addr_df)
 

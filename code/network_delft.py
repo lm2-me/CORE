@@ -41,7 +41,7 @@ import overpy
 
 from utils.multicore_shortest_path import multicore_shortest_path
 from utils.multicore_nearest_edges import multicore_nearest_edge
-from utils.osm_data_request import get_addr_query, get_building_query, get_osm_addr, get_osm_building, compare_building_addr, load_csv
+from utils.osm_data_request import get_addr_query, get_building_query, get_osm_addr, get_osm_building, compare_building_addr, load_csv, addxy_building_addr, get_CBS_query, get_CBS_data, read_CBS, compare_building_cbs
 
 class CityNetwork():
     # Plot settings
@@ -101,8 +101,9 @@ class CityNetwork():
         self.graph = graph
         print("Finished loading")
 
-    def load_building_addr(self, building_addr_path: str, building_path: str, adress_path: str):
+    def load_building_addr(self, building_addr_path: str, building_path: str, adress_path: str, cbs_path: str):
         print("Loading buildings...")
+        cbs_properties = ['geom','gemiddeldeHuishoudsgrootte']#,'buurtcode','buurtnaam','gemeentenaam']
 
         if not (os.path.isfile(building_addr_path)):
             if not (os.path.isfile(adress_path) and os.path.isfile(building_path)):
@@ -112,13 +113,13 @@ class CityNetwork():
                 error = 0
                 for i in self.url:
                     try:
-                        building_frame = get_osm_building(building_query, url=i)
-                        building_frame.to_csv(building_path)
-                        print(f"OSM building data saved to {building_path}")
-
                         addr_frame = get_osm_addr(addr_query, url=i)
                         addr_frame.to_csv(adress_path)
                         print(f"OSM address data saved to {adress_path}")
+
+                        building_frame = get_osm_building(building_query, url=i)
+                        building_frame.to_csv(building_path)
+                        print(f"OSM building data saved to {building_path}")
                         break
                     except overpy.exception.OverpassGatewayTimeout as exc:
                         print(exc)
@@ -133,14 +134,25 @@ class CityNetwork():
                 
                 if error == len(self.url):
                     print("The request is currently unable to gather Overpass data, please retry manually in 30 seconds")
-            
+                    exit()
             # Load the building and adress data from csv
             addr_frame =  load_csv(adress_path)
             building_frame = load_csv(building_path)
 
             building_addr_df = compare_building_addr(building_frame, addr_frame)
+            building_addr_df.to_csv(building_addr_path)
+            print(f"Building/Adress data saved to {building_addr_path}")
         else:
             building_addr_df = load_csv(building_addr_path)
+        
+        building_addr_df = addxy_building_addr(building_addr_df)
+        CBS_query = get_CBS_query(([''], self.coordinates), cbs_properties, buurt_index_skip=[0])
+        if not (os.path.isfile(cbs_path)):
+            get_CBS_data(CBS_query, cbs_path)
+        print(cbs_path)
+        CBS_data = read_CBS(cbs_path)
+
+        building_addr_df= compare_building_cbs(building_addr_df, CBS_data, cbs_properties)
 
         # Save to CityNetwork object
         self.building_addr_df = building_addr_df
