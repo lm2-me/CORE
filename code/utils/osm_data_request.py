@@ -254,6 +254,7 @@ def compare_building_cbs(building_addr, cbs_data, cbs_properties):
     for i in cbs_properties:
         building_addr[i] = np.nan
 
+    #JOB CHECK THIS MAINLY
     #Adding the Buurt data to the dataframe
     print('Adding the CBS data to the dataframe')
     max_length = ' / ' + str(len(building_addr))
