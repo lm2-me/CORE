@@ -3,6 +3,7 @@ from pickletools import read_unicodestring1
 import matplotlib.pyplot as plt
 import numpy as np
 import math as m
+import osmnx as ox
 
 from network_delft import CityNetwork, timer_decorator
 from utils.multicore_shortest_path import transform_coordinates
@@ -167,6 +168,14 @@ def hub_clusters(City, hub_dictionary, orig_yx_transf, orig_edges):
     if 'hubdistance' not in City.building_addr_df:
         hub_dist = [(m.inf)] * len(City.building_addr_df)
         City.building_addr_df['hubdistance'] = hub_dist
+    
+    if 'hubx' not in City.building_addr_df:
+        hub_dist = [(0)] * len(City.building_addr_df)
+        City.building_addr_df['hubx'] = hub_dist
+    
+    if 'huby' not in City.building_addr_df:
+        hub_dist = [(0)] * len(City.building_addr_df)
+        City.building_addr_df['huby'] = hub_dist
 
     dest_edge = nearest_edges_hubs(City, hub_yx_transf)
     dest_edges = dest_edge * len(orig_yx_transf)
@@ -186,6 +195,8 @@ def hub_clusters(City, hub_dictionary, orig_yx_transf, orig_edges):
             if row[0] < City.building_addr_df.at[i,'hubdistance']:
                 City.building_addr_df.at[i,'hubdistance']=row[0]
                 City.building_addr_df.at[i,'nearesthub']=hub_index
+                City.building_addr_df.at[i,'hubx']=hub_dictionary[hub_index]['x']
+                City.building_addr_df.at[i,'huby']=hub_dictionary[hub_index]['y']
         
         print(City.building_addr_df)
 
@@ -198,7 +209,73 @@ def hub_fitness():
 def add_points():
     return 1
 
-def visualize_clusters():
+def visualize_clusters(City, hub_dictionary):
+
+    print('Plotting figure...')
+
+    fig, ax = ox.plot_graph(City.graph, show=False, save=False, close=False,
+        figsize = City.figsize,
+        bgcolor = City.bgcolor,
+        edge_color = City.edge_color,
+        node_color = City.node_color,
+        edge_linewidth = City.edge_linewidth,
+        node_size = City.node_size)
+            
+    for hub in hub_dictionary:
+        ax.scatter(orig[1], orig[0],
+            color=City.origin_color, marker='x', s=100, label='orig-point')
+        
+        ax.scatter(dest[1], dest[0],
+            color=self.destination_color, marker='x', s=100, label='orig-point')
+
+        # Add an x to specific points
+        for mark in marks:
+            ax.scatter(mark[1], mark[0],
+                color=self.marker_color, marker='x', s=100, label='Mark')
+
+        # Add annotations to the edges, can be names, travel_times etc.
+        if annotations:
+            graph = ox.get_undirected(self.graph)
+            for _, edge in ox.graph_to_gdfs(graph, nodes=False).fillna('').iterrows():
+                c = edge['geometry'].centroid
+                text = edge[annotations]
+                ax.annotate(text, (c.x, c.y), c=self.font_color, fontsize=self.font_size)
+
+        fig, ax = ox.plot._save_and_show(fig, ax)
+
+        if save:
+            fig.savefig(f'data/plot_pngs/plot_{time.time()}.png')
+
+        return fig, ax
+    else:
+        # Only print the map
+        fig, ax = ox.plot_graph(self.graph, show=False, save=False, close=False,
+        figsize = self.figsize,
+        bgcolor = self.bgcolor,
+        edge_color = self.edge_color,
+        node_color = self.node_color,
+        edge_linewidth = self.edge_linewidth,
+        node_size = self.node_size)
+        
+        # Add annotations to the edges, can be names, travel_times etc.
+        if annotations:
+            graph = ox.get_undirected(self.graph)
+            for _, edge in ox.graph_to_gdfs(graph, nodes=False).fillna('').iterrows():
+                c = edge['geometry'].centroid
+                text = edge[annotations]
+                ax.annotate(text, (c.x, c.y), c=self.font_color, fontsize=self.font_size)
+
+        # Add an x to specific points
+        for mark in marks:
+            ax.scatter(mark[1], mark[0],
+                color=self.marker_color, marker='x', s=100, label='Mark')
+
+        ox.plot._save_and_show(fig, ax)
+
+    # Loading the graph as a pickle file avoids having to recalculate
+    # attributes such as speed, length etc. and is way faster
+    # Call this function through var = CityNetwork.load_graph('var')
+
     return 1
     #City.plot()
 
@@ -227,11 +304,11 @@ def main():
 
     orig_edges = nearest_edges_buildings(City, orig_yx_transf, name, data_folder)
 
-    hub_dictionary = generate_random_points(coordinates_transformed, start_pt_ct)
-        
+    ### generate random points for hubs and cluster houses based on closest hub
+    hub_dictionary = generate_random_points(coordinates_transformed, start_pt_ct)       
     hub_clusters(City, hub_dictionary, orig_yx_transf, orig_edges)
-    
-    visualize_clusters(City, hub_dictionary)
+
+    #visualize_clusters(City)
 
     '''
         (done) 1. Initilize clusters - generate_random_starting_points
