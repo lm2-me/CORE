@@ -262,8 +262,10 @@ def hub_clusters(City, hub_dictionary, orig_xy_transf, orig_edges,name, data_fol
         dest_edges_current = [hub_edge_dict[hub]] * len(orig_xy_transf)
         
         # Returning route_weight, nx_route, orig_partial_edge, dest_partial_edge, orig_yx, dest_yx
-        # [(route_weight, nx_route, orig_partial_edge, dest_partial_edge, orig_yx, dest_yx)]      
-        
+        # [(route_weight, nx_route, orig_partial_edge, dest_partial_edge, orig_yx, dest_yx)]    
+  
+        #@Job orig_xy_transf coming from load_network was labeled as orig_yx_tranf but it returns xy (in that order)
+        #shortes_paths works when both orig and hub are entered as xy coordinates (x = longitude, y = latitude like you would do when plotting a point on a graph)
         hub_dist = City.shortest_paths(orig_xy_transf, hub_xy_transf_current, orig_edges, dest_edges_current, weight='travel_time', method='dijkstra', return_path=True, cpus=cpu_count)
 
         ## point2 = np.array(hub_xy_dict[hub])
