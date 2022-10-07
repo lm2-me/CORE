@@ -77,7 +77,7 @@ def placepackages(srfpts_tree, cost_function_tree, lables_tree, module_use, modu
         #hs.HopsString("Cost", "$", "Value function results for each point", access=hs.HopsParamAccess.TREE),
         hs.HopsPoint("Module Grid Edges", "E", "Field of points that represent the edge of the surface", access=hs.HopsParamAccess.TREE),
         hs.HopsString("Lables", "L", "Lables for each point", access=hs.HopsParamAccess.TREE),
-    ]
+    ] 
 )
 def placemodules(srfpts_tree, cost_function_tree, lable_array, module_use_tree, module_geometry_list, module_mask_tree):
     return siteprocessing.place_modules(srfpts_tree, cost_function_tree, lable_array, module_use_tree, module_geometry_list, module_mask_tree)
@@ -85,23 +85,24 @@ def placemodules(srfpts_tree, cost_function_tree, lable_array, module_use_tree, 
 
 ### components written by Seb
 @hops.component(
-    "/wavefunctioncollapse",
-    name="WaveFunctionCollapse",
+    "/wavefunctioncollapse3",
+    name="Wave Function Collapse3",
     description="Create surface structure from tiles using WFC",
     icon="examples/pointat.png",
     inputs=[
         hs.HopsNumber("Dim x", "X", "Dimension in x of grid"),
         hs.HopsNumber("Dim y", "Y", "Dimension in y of grid"),
         hs.HopsNumber("Max Height", "H", "Max height offset of tile allowed"),
+        hs.HopsNumber("Empty", "E", "Empty if True or 1, no tile at location", access=hs.HopsParamAccess.LIST)
     ],
     outputs=[
-        hs.HopsPoint("Name Indices", "N", "Name index of tiles to place", access=hs.HopsParamAccess.LIST),
-        hs.HopsPoint("Rotations", "R", "Rotation of tile", access=hs.HopsParamAccess.LIST),
-        hs.HopsPoint("Heights", "H", "Height offset for tile", access=hs.HopsParamAccess.LIST),
+        hs.HopsNumber("Name Indices", "N", "Name index of tiles to place", access=hs.HopsParamAccess.LIST),
+        hs.HopsNumber("Rotations", "R", "Rotation of tile", access=hs.HopsParamAccess.TREE),
+        hs.HopsNumber("Heights", "H", "Height offset for tile", access=hs.HopsParamAccess.TREE),
     ]
 )
-def runWFC(dx, dy, max_height):
-    return WaveFunctionCollapse.runWFC(name_index, rotation, height)
+def run_my_WFC(dx, dy, max_height, empty_list):
+    return WaveFunctionCollapse.runWFC(dx, dy, max_height, empty_list)
 
 
 ### END COMPONENT REGISTRATION
