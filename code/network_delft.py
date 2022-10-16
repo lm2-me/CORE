@@ -46,19 +46,19 @@ from utils.osm_data_request import get_addr_query, get_building_query, get_osm_a
 class CityNetwork():
     # Plot settings
     figsize=(8, 8) 
-    bgcolor = 'white'
-    edge_color = 'gray'
-    node_color = 'black'
+    bgcolor = '#181717'
+    edge_color = 'lightgray'
+    node_color = 'white'
     edge_linewidth = 1
     node_size=3
-    route_color = 'blue'
+    route_color = '#C90808'
     route_width = 3
-    origin_color = 'purple'
-    destination_color = 'green'
+    origin_color = '#FFE54F'
+    destination_color = '#82C5DA'
     marker_color = 'purple'
-    font_color = 'gray'
+    font_color = 'lightgray'
     font_size = 7
-
+    
     def __init__(self, name: str, coordinates: list, transport_type):
         self.name = name
         self.coordinates = coordinates
