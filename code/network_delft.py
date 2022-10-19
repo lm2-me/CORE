@@ -9,7 +9,7 @@ Jirri van den Bos, TU Delft (load building addresses)
 Classes:
     - CityNetwork
 
-    Functions:
+    Methods:
         - load_osm_graph: load osm data to networkx graph online or local
         - add_rel_attributes: calculate speed, length and travel_time
         - project_graph: project graph on different coordinate system

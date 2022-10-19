@@ -17,20 +17,15 @@ Other functions:
     - main: optimizes hub locations
 """
 
-import matplotlib.pyplot as plt
-import numpy as np
 import math as m
-import osmnx as ox
 import random
-import time
 
-import utils.clustering as c
 import utils.network_helpers as h
 import utils.visualizations as v
 from re import X
 from network_delft import CityNetwork, timer_decorator
+from clustering import NetworkClustering
 from utils.multicore_shortest_path import transform_coordinates
-from utils.multicore_nearest_edges import multicore_nearest_edge
 
 
 def generate_network(name, data_folder, vehicle_type, coordinates):
@@ -100,11 +95,13 @@ def load_network(name, data_folder):
 def main():
     #initialization variables
     cpu_count = None
-    name = 'delft_walk'
+    network_name = 'delft_walk'
+    cluster_name = 'delft_cluster'
     data_folder = 'data/'
     vehicle_type = 'walk' # walk, bike, drive, all (See osmnx documentation)
     max_travel_time = 150 #time in seconds
     random_init = 100
+
 
     ### Delft City Center #coordinates = [52.018347, 52.005217, 4.369142, 4.350504]
     ### Delft #coordinates = [52.03, 51.96, 4.4, 4.3]
@@ -113,6 +110,9 @@ def main():
 
     start_pt_ct = 3 # number of starting hubs
     calc_euclid = False #also calculate euclidean distances for first iteration?
+    generate_new_network = True # if true, new network will be generated, otherwise set to false to only load a network
+    load_clustering = True # if clustering crashed or finished, set to true to load the last iteration
+    visualize_clustering = True # if clusering images are generated
 
     hub_colors = ['#FFE54F', '#82C5DA', '#C90808', '#FAA12A', '#498591', '#E64C4C', '#E4FFFF', '#CA5808', '#3F4854']
     
@@ -126,18 +126,25 @@ def main():
     coordinates_transformed_xy = h.flip_lat_long(coordinates_transformed_yx)
 
     ### generate new network, only run at beginning
-    generate_network(name, data_folder, vehicle_type, coordinates)
+    if generate_new_network: generate_network(network_name, data_folder, vehicle_type, coordinates)
 
     ### load network from file, run after network is generated
-    City, orig_yx_transf = load_network(name, data_folder)
-    c.reset_hub_df_values(City)
+    City, orig_yx_transf = load_network(network_name, data_folder)
+
+    ###initiate clustering
+    Clusters = NetworkClustering('delftclustering')
+    Clusters.reset_hub_df(City)
+
+    ### if clustering crashed or finishes, load the latest iteration
+    if load_clustering: Clusters.load_clustering(cluster_name, data_folder)
+    print('Starting with iteration ', Clusters.iteration)
     
     #City.ne = None
 
-    orig_edges = h.nearest_edges_buildings(City, orig_yx_transf, name, data_folder, cpu_count)
+    orig_edges = h.nearest_edges_buildings(City, orig_yx_transf, network_name, data_folder, cpu_count)
 
     #initialized variables - do not change
-    iteration = 1
+    iteration = Clusters.iteration
     time_check = False
     max_time_list = m.inf 
 
@@ -149,46 +156,54 @@ def main():
     while not time_check and iteration < 10:
         ### reset all DF values to default for iteration
         print('iteration: ', iteration)
-        c.reset_hub_df_values(City)
+        Clusters.reset_hub_df(City)
+        Clusters.iteration = iteration
+        Clusters.save_iteration(cluster_name, data_folder)
 
         if iteration == 1:
             ### only on first iteration generate random points for hubs and cluster houses based on closest hub
-            hub_dictionary = c.generate_random_points(coordinates_transformed_xy, start_pt_ct)
-            #v.visualize_clusters(City, hub_dictionary, 'hub_locations_1', hub_colors, save=True)
-            print(hub_dictionary) 
-            c.hub_clusters(City, hub_dictionary, orig_yx_transf, orig_edges, name, data_folder, cpu_count)
+            Clusters.generate_random_points(coordinates_transformed_xy, start_pt_ct)
+            if visualize_clustering: v.visualize_clusters(City, Clusters, 'locations_1', hub_colors, save=True)
+            print(Clusters.hub_list_dictionary) 
+            Clusters.hub_clusters(City, orig_yx_transf, orig_edges, cluster_name, data_folder, cpu_count)
             if calc_euclid:
-                c.hub_clusters_euclidean(City, hub_dictionary, orig_yx_transf, name, data_folder)
-                v.euclid_visualize_clusters(City, hub_dictionary, hub_colors, save=True)
-            #v.visualize_clusters(City, hub_dictionary, 'hub_clusters_1', hub_colors, save=True)
+                Clusters.hub_clusters_euclidean(orig_yx_transf, cluster_name, data_folder)
+                if visualize_clustering: v.euclid_visualize_clusters(City, Clusters, 'clusters_1_euclid', hub_colors, save=True)
+            if visualize_clustering: v.visualize_clusters(City, Clusters, 'clusters_1', hub_colors, save=True)
 
         else:
             ### on all other iterations, add a new hub each time the while loop runs 
-            c.add_points(point_count, hub_dictionary, coordinates_transformed_xy)
-            print('added hub', hub_dictionary)
-            image_title1 = 'hub_locations_' + str(iteration)
-            #v.visualize_clusters(City, hub_dictionary, image_title1, hub_colors, save=True)
-            c.hub_clusters(City, hub_dictionary, orig_yx_transf, orig_edges, name, data_folder, cpu_count)
+            Clusters.add_points(point_count, coordinates_transformed_xy)
+            print('added hub', Clusters.hub_list_dictionary)
+            image_title1 = 'locations_' + str(iteration)
+            if visualize_clustering: v.visualize_clusters(City, Clusters, image_title1, hub_colors, save=True)
+            Clusters.hub_clusters(City, orig_yx_transf, orig_edges, cluster_name, data_folder, cpu_count)
             if calc_euclid:
-                c.hub_clusters_euclidean(City, hub_dictionary, orig_yx_transf, name, data_folder)
-            image_title2 = 'hub_locations_' + str(iteration)
-            #v.visualize_clusters(City, hub_dictionary, image_title2, hub_colors, save=True)
+                Clusters.hub_clusters_euclidean(orig_yx_transf, cluster_name, data_folder)
+                image_title_euclid = 'clusters_' + str(iteration) + '_euclid'
+                if visualize_clustering: v.euclid_visualize_clusters(City, Clusters, image_title_euclid, hub_colors, save=True)
+            image_title2 = 'clusters_' + str(iteration)
+            if visualize_clustering: v.visualize_clusters(City, Clusters, image_title2, hub_colors, save=True)
 
         ###optimize hub locations
-        move_distance = c.new_hub_location(City, hub_dictionary)
+        move_distance = Clusters.new_hub_location(City)
         i = 0
         while move_distance > max_distance and i < max_iterations:
-            c.hub_clusters(City, hub_dictionary, orig_yx_transf, orig_edges, name, data_folder, cpu_count)
-            c.hub_clusters_euclidean(City, hub_dictionary, orig_yx_transf, name, data_folder)
-            move_distance = c.new_hub_location(City, hub_dictionary)
+            Clusters.hub_clusters(City, orig_yx_transf, orig_edges, cluster_name, data_folder, cpu_count)
+            if calc_euclid: Clusters.hub_clusters_euclidean(orig_yx_transf, cluster_name, data_folder)
+            move_distance = Clusters.new_hub_location(City)
             print('moved hubs on average ', move_distance)
 
             i += 1
-        image_title = 'optimized_hub_locations_' + str(iteration)
-        v.visualize_clusters(City, hub_dictionary, image_title, hub_colors, save=True)
+
+        ### visualized optimized hub locations
+        image_title = 'clusters_' + str(iteration) + '_optimized'
+        image_title_euclid = 'clusters_' + str(iteration) + '_euclid_optimized'
+        if visualize_clustering: v.visualize_clusters(City, Clusters, image_title, hub_colors, save=True)
+        if calc_euclid and visualize_clustering: v.euclid_visualize_clusters(City, Clusters, image_title_euclid, hub_colors, save=True) 
         
         ###check fitness function
-        time_check, max_time_list = c.hub_fitness(City, hub_dictionary, max_travel_time)
+        time_check, max_time_list = Clusters.hub_fitness(City, max_travel_time)
         iteration += 1
         max_distance -= 3
         max_iterations += 10

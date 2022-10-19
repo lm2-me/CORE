@@ -20,8 +20,8 @@ import time
 from re import X
 
 ### visualize the hub clusters based on travel time
-def visualize_clusters(City, hub_dictionary, text, hub_colors, save=False):
-    hub_colors_dict = dict(zip(hub_dictionary.keys(), hub_colors))
+def visualize_clusters(City, Clusters, text, hub_colors, save=False):
+    hub_colors_dict = dict(zip(Clusters.hub_list_dictionary.keys(), hub_colors))
 
     print('Plotting figure...')
 
@@ -34,14 +34,14 @@ def visualize_clusters(City, hub_dictionary, text, hub_colors, save=False):
         node_size = City.node_size)
     
     # add spots for the hubs
-    for hub_name, hub_value in hub_dictionary.items():
+    for hub_name, hub_value in Clusters.hub_list_dictionary.items():
         color_to_use = hub_colors_dict[hub_name]
         current_label = hub_name
         #print(current_label, point, color_to_use)
         ax.scatter(hub_value['x'], hub_value['y'],
             color=color_to_use, marker='o', s=100, label=current_label)
 
-    for index, row in City.building_addr_df.T.items():
+    for i, row in Clusters.hub_assignments_df.T.items():
         if row['nearesthub'] == 'None':
             color_to_use = 'white'
         elif row['path_not_found']:
@@ -50,20 +50,21 @@ def visualize_clusters(City, hub_dictionary, text, hub_colors, save=False):
             color_to_use = hub_colors_dict[row['nearesthub']]
 
         current_label = hub_name
-        ax.scatter(row['x'], row['y'],
+        ax.scatter(City.building_addr_df.iloc[i]['x'], City.building_addr_df.iloc[i]['y'],
                     color=color_to_use, marker='o', s=5, label=current_label) 
     
+    ax.set_title(text)
     plt.show()
 
     if save:
-        fig.savefig(f'data/plot_pngs/plot_'+ text +f'_{time.time()}.png')
+        fig.savefig(f'data/plot_pngs/'+ text +f'_{time.time()}.png')
 
     return fig, ax
 
 ### visualize the hub clusters based on euclidean distance
-def euclid_visualize_clusters(City, hub_dictionary, hub_colors, save=False):
+def euclid_visualize_clusters(City, Clusters, text, hub_colors, save=False):
     
-    hub_colors_dict = dict(zip(hub_dictionary.keys(), hub_colors))
+    hub_colors_dict = dict(zip(Clusters.hub_list_dictionary.keys(), hub_colors))
 
     print('Plotting figure...')
 
@@ -76,22 +77,23 @@ def euclid_visualize_clusters(City, hub_dictionary, hub_colors, save=False):
         node_size = City.node_size)
     
     # add spots for the hubs
-    for hub_name, hub_value in hub_dictionary.items():
+    for hub_name, hub_value in Clusters.hub_list_dictionary.items():
         color_to_use = hub_colors_dict[hub_name]
         current_label = hub_name
         #print(current_label, point, color_to_use)
         ax.scatter(hub_value['x'], hub_value['y'],
             color=color_to_use, marker='o', s=100, label=current_label)
 
-    for index, row in City.building_addr_df.T.items():
+    for i, row in Clusters.hub_assignments_df.T.items():
         color_to_use = hub_colors_dict[row['euclid_nearesthub']]
         current_label = hub_name
-        ax.scatter(row['x'], row['y'],
+        ax.scatter(City.building_addr_df.iloc[i]['x'], City.building_addr_df.iloc[i]['y'],
                     color=color_to_use, marker='o', s=5, label=current_label) 
     
+    ax.set_title(text)
     plt.show()
 
     if save:
-        fig.savefig(f'data/plot_pngs/plot_euclid_{time.time()}.png')
+        fig.savefig(f'data/plot_pngs/'+ text +f'{time.time()}.png')
 
     return fig, ax

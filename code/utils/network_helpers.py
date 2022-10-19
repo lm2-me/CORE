@@ -15,6 +15,7 @@ Functions:
     - nearest_edges_buildings: find the nearest network edges for all building locations
     - nearest_edges_hubs: find the nearest network edges for all hub locations
     - get_yx_transf_from_dict: get the yx transform values from the dictionary containing hub locations
+    - get_sublists: from a combined list of distance to all hubs, get the sublists for each hub
 """
 
 import numpy as np
@@ -83,6 +84,7 @@ def nearest_edges_hubs(City, hub_yx_transf, cpu_count):
 
 ### get the yx transform values from the dictionary containing hub locations
 def get_yx_transf_from_dict(hub_dictionary):
+
     label_list = []
     value_list = []
     for (hub_name, hub_loc) in hub_dictionary.items():
@@ -93,3 +95,11 @@ def get_yx_transf_from_dict(hub_dictionary):
         )
 
     return label_list, value_list
+
+### from a combined list of distance to all hubs, get the sublists for each hub
+def get_sublists(list, sublist_number):
+    sub_list_length = len(list) // sublist_number
+    list_of_sublists = []
+    for i in range(0, len(list), sub_list_length):
+        list_of_sublists.append(list[i:i+sub_list_length])
+    return list_of_sublists
