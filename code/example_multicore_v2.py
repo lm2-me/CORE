@@ -1,3 +1,4 @@
+from utils.multicore_shortest_path import paths_to_dataframe
 from network_delft import CityNetwork, timer_decorator
 from utils.multicore_shortest_path import transform_coordinates
 from utils.multicore_shortest_path import multicore_single_source_shortest_path, closest_hub
@@ -11,7 +12,7 @@ import time
 def main():
 
     # LOAD THE NETWORK (SIMILAR AS BEFORE)
-    name = 'Full_Delft_walk'
+    name = 'Delft_center_walk'
     data_folder = 'data/'
     vehicle_type = 'walk' # walk, bike, drive, all (See osmnx documentation)
 
@@ -46,14 +47,18 @@ def main():
 
     for i in range(num_iterations):
         # Random positions of hubs
+        random.seed(2)
         hubs = [(random.randint(6801030, 6803490), random.randint(484261, 486397)) for _ in range(num_hubs)]
 
         print(f"Cluster iteration {i} started...")
 
         # Calculate shortest paths by hub
         # Requires the following inputs: graph, orig(hubs), dest(houses), dest_edges(pre-calculated), method='dijkstra', weight='travel_time', cutoff=None, cpus=None
-        paths = multicore_single_source_shortest_path(City.graph, hubs, dest_yx_transf, dest_edges, weight='travel_time', cutoff=None, cpus=10)
-        
+        paths = multicore_single_source_shortest_path(City.graph, hubs, dest_yx_transf, dest_edges, weight='travel_time', cutoff=120, cpus=1)
+
+        paths_df = paths_to_dataframe(paths, hubs=hubs)
+        print(paths_df)
+
         '''
         CALCULATE FITNESS HERE
         REPOSITION THE HUBS BASED ON K-MEANS CLUSTERING        
