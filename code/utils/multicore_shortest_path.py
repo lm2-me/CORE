@@ -1,5 +1,3 @@
-from tkinter.ttk import Progressbar
-from matplotlib.ticker import IndexLocator
 import networkx as nx
 
 from shapely.geometry import Point
@@ -11,6 +9,7 @@ from osmnx.distance import great_circle_vec
 from osmnx.utils_graph import get_route_edge_attributes
 
 import numpy as np
+import pandas as pd
 import osmnx as ox
 
 import multiprocessing as mp
@@ -602,3 +601,24 @@ def multicore_single_source_shortest_path(graph, orig, dest, dest_edges, method=
             orig_paths[o] = res
         
     return orig_paths
+
+def paths_to_dataframe(paths, hubs=None):
+    df = pd.DataFrame()
+
+    closest_hubs, _ = closest_hub(paths)
+    print(len(closest_hubs))
+    
+    closest_paths = [list(paths.values())[hub_idx][num] if hub_idx != None else None for num, hub_idx in enumerate(closest_hubs)]
+
+    df['Nearest_hub_idx'] = closest_hubs
+    df['Nearest_hub_name'] = [str(f"hub_{i + 1}") if i != None else None for i in closest_hubs]
+    df['Weight'] = [data[0] if data != None else None for data in closest_paths]
+    df['Path_not_found'] = [True if hub == None else False for hub in closest_hubs]
+    
+    if hubs != None:
+        df['hub_x'] = [hubs[i][1] if i != None else None for i in closest_hubs]
+        df['hub_y'] = [hubs[i][0] if i != None else None for i in closest_hubs]
+
+    df['Path'] = closest_paths
+    
+    return df
