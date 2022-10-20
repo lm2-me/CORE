@@ -602,11 +602,11 @@ def multicore_single_source_shortest_path(graph, orig, dest, dest_edges, method=
         
     return orig_paths
 
+# Generate a dataframe from the shortest paths result
 def paths_to_dataframe(paths, hubs=None):
     df = pd.DataFrame()
 
     closest_hubs, _ = closest_hub(paths)
-    print(len(closest_hubs))
     
     closest_paths = [list(paths.values())[hub_idx][num] if hub_idx != None else None for num, hub_idx in enumerate(closest_hubs)]
 
