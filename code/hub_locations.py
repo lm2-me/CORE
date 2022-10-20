@@ -1,26 +1,37 @@
-from cgi import test
-from pickletools import read_unicodestring1
-from re import X
-import matplotlib.pyplot as plt
-import numpy as np
+"""
+functions related to creating and optimizing hub locations
+
+By: 
+Job de Vogel, TU Delft (generate and load network)
+Lisa-Marie Mueller, TU Delft (main, hub clustering and cluster optimization)
+
+Classes:
+    - None
+
+Functions:
+    - generate_network: generates the network based on the inputs provided in the main function including the location
+    - load_network: loads a previously generated network
+
+
+Other functions:
+    - main: optimizes hub locations
+"""
+
 import math as m
-import osmnx as ox
-
-from network_delft import CityNetwork, timer_decorator
-from utils.multicore_shortest_path import transform_coordinates
-from utils.multicore_nearest_edges import multicore_nearest_edge
-
 import random
-import time
 
+import utils.network_helpers as h
+import utils.visualizations as v
+from re import X
+from network_delft import CityNetwork, timer_decorator
+from clustering import NetworkClustering
+from utils.multicore_shortest_path import transform_coordinates
 
-### Job's Code: generate network
-''' --- GENERATE NETWORK ---
-Generate a new network using the functions in the CityNetwork class. If a network already has been generated and stored in the data folder, comment this part and continue with PREPARE NETWORK. '''
 
 def generate_network(name, data_folder, vehicle_type, coordinates):
-    ''' --- INITIALIZE --- '''
-
+    ### Job's Code: generate network function
+    ''' --- GENERATE NETWORK ---
+    Generate a new network using the functions in the CityNetwork class. If a network already has been generated and stored in the data folder, comment this part and continue with PREPARE NETWORK. '''
     # Initialize CityNetwork object [N, S, E, W]
     City = CityNetwork(name, coordinates, vehicle_type)
     
@@ -30,8 +41,6 @@ def generate_network(name, data_folder, vehicle_type, coordinates):
         data_folder + name + '_buildings.csv', 
         data_folder + name + '_addresses.csv',
         data_folder +'runtime/'+ name + '_cbs.xml')
-    
-    print(City.building_addr_df)
 
     # Add speeds, lengths and distances to graph
     # Overwrite speed by using overwrite_bike=16
@@ -52,10 +61,11 @@ def generate_network(name, data_folder, vehicle_type, coordinates):
     City.save_graph(name, data_folder)
     print('------------------------------------')
 
-###Job's Code load network
-''' --- PREPARE NETWORK ---
-Load the network from .pkl file. Transform the origin and destination to the unprojected space.'''
+
 def load_network(name, data_folder):
+    ###Job's Code load network function
+    ''' --- PREPARE NETWORK ---
+    Load the network from .pkl file. Transform the origin and destination to the unprojected space.'''
 
     # Load the CityNetwork class object
     City = CityNetwork.load_graph(name, data_folder)
@@ -74,339 +84,129 @@ def load_network(name, data_folder):
     orig_yx_transf = []
 
     # Transform the start and origin to epsg:3857 (surface)
-
-    for index, row in City.building_addr_df.T.items():
-        coordinate = row['x'], row['y']
+    # for index, row in City.building_addr_df.T.items():
+    for index, row in City.building_addr_df.iterrows():
+        coordinate = row['y'], row['x']
         orig_yx_transf.append(coordinate)
 
     return City, orig_yx_transf
 
-def reset_hub_df_values(City):
-    if 'nearesthub' not in City.building_addr_df:
-        hub_num = [('')] * len(City.building_addr_df)
-        City.building_addr_df['nearesthub'] = hub_num
-    else:
-        City.building_addr_df['nearesthub'].values[:] = ''
-    
-    if 'hubdistance' not in City.building_addr_df:
-        hub_dist = [(m.inf)] * len(City.building_addr_df)
-        City.building_addr_df['hubdistance'] = hub_dist
-    else:
-        City.building_addr_df['hubdistance'].values[:] = np.inf
-    
-    if 'hub_x' not in City.building_addr_df:
-        hub_x = [(0)] * len(City.building_addr_df)
-        City.building_addr_df['hub_x'] = hub_x
-    else:
-        City.building_addr_df['hub_x'].values[:] = 0
-    
-    if 'hub_y' not in City.building_addr_df:
-        hub_y = [(0)] * len(City.building_addr_df)
-        City.building_addr_df['hub_y'] = hub_y
-    else:
-        City.building_addr_df['hub_y'].values[:] = 0
-    
-    if 'euclid_nearesthub' not in City.building_addr_df:
-        hub_num = [('')] * len(City.building_addr_df)
-        City.building_addr_df['euclid_nearesthub'] = hub_num
-    else:
-        City.building_addr_df['euclid_nearesthub'].values[:] = ''
-    
-    if 'euclid_hubdistance' not in City.building_addr_df:
-        euclid_hub_dist = [(m.inf)] * len(City.building_addr_df)
-        City.building_addr_df['euclid_hubdistance'] = euclid_hub_dist
-    else:
-        City.building_addr_df['euclid_hubdistance'].values[:] = np.inf
-
-def nearest_edges_buildings(City, orig_yx_transf, name, data_folder, cpu_count):
-    x = []
-    y = []
-
-    for orig in orig_yx_transf:
-        x.append(orig[1])
-        y.append(orig[0])
-    
-    edges = City.nearest_edges(x, y, 5, cpus=cpu_count)
-    City.save_graph(name, data_folder)
-    orig_edge = edges
-    return orig_edge
-
-def nearest_edges_hubs(City, hub_yx_transf, cpu_count):
-    x = []
-    y = []
-
-    for hub in hub_yx_transf:
-        x.append(hub[1])
-        y.append(hub[0])
-    
-    edges, _ = multicore_nearest_edge(City.graph, x, y, City.interpolation, cpus=cpu_count)
-    #print(f"edge: {edges}")
-    return edges
-
-def coordinates_to_tupple(coordinates):
-    #[N, S, E, W]
-    w_n_corner = (coordinates[3], coordinates[0]) 
-    e_n_corner = (coordinates[2], coordinates[0]) 
-    w_s_corner = (coordinates[3], coordinates[1]) 
-    e_s_corner = (coordinates[2], coordinates[1]) 
-
-    return ([w_n_corner, e_n_corner, w_s_corner, e_s_corner])
-
-def flip_lat_long(coordinates_list):
-    return [(coord[1], coord[0]) for coord in coordinates_list]
-
-def generate_random_points(coordinates_transformed_xy,start_pt_ct, random_init, hub_dictionary=None):
-    random.seed(random_init)
-
-    if hub_dictionary == None:
-        hub_dictionary = {}
-
-    #[N, S, E, W]
-    print('coordinates transformed', coordinates_transformed_xy)
-    #w_n_corner, e_n_corner, w_s_corner, e_s_corner
-    coordinateX_min = coordinates_transformed_xy[0][0]
-    coordinateX_max = coordinates_transformed_xy[1][0]
-    coordinateY_min = coordinates_transformed_xy[2][1]
-    coordinateY_max = coordinates_transformed_xy[0][1]
-
-    index = len(hub_dictionary)+1
-
-    for i in range(start_pt_ct):
-        x = random.uniform(coordinateX_min, coordinateX_max)
-        y = random.uniform(coordinateY_min, coordinateY_max)
-
-        index_name = 'hub ' + str(index)
-
-        if index_name not in hub_dictionary:
-            hub_dictionary[index_name] = {
-                "x": x,
-                "y": y
-            } 
-        index += 1
-
-    return hub_dictionary
-
-def get_xy_transf_from_dict(hub_dictionary):
-    label_list = []
-    value_list = []
-    for (hub_name, hub_loc) in hub_dictionary.items():
-        label_list.append(hub_name)
-        value_list.append(
-            (hub_loc['x'], hub_loc['y'])
-        )
-
-    return label_list, value_list
-    # hub_yx_transf = []
-    # for index in range(1, len(hub_dictionary)+1):
-    #     coordinate = (hub_dictionary[index]['y'], hub_dictionary[index]['x'])
-    #     hub_yx_transf.append(coordinate)
-
-    # return hub_yx_transf
-
-def hub_clusters_euclidean(City, hub_dictionary, orig_xy_transf, orig_edges,name, data_folder, cpu_count):
-    ### randomly generated hub locations is hub_dictionary
-    ### use k-means to cluster houses around hub locations
-    hub_num = len(hub_dictionary)
-    hub_names, hub_xy_transf = get_xy_transf_from_dict(hub_dictionary)
-    dest_edges = nearest_edges_hubs(City, hub_xy_transf, cpu_count)
-    
-    hub_xy_dict = dict(zip(hub_names, hub_xy_transf))
-    hub_edge_dict = dict(zip(hub_names, dest_edges))
-
-    ### first_paths returns [(route_weight, nx_route, orig_partial_edge, dest_partial_edge)]
-    for hub in hub_names:
-        print(hub)
-        #get distance of all current hub to all houses
-        hub_xy_transf_current = [hub_xy_dict[hub]] * len(orig_xy_transf)
-        dest_edges_current = [hub_edge_dict[hub]] * len(orig_xy_transf)
-        
-        # Returning route_weight, nx_route, orig_partial_edge, dest_partial_edge, orig_yx, dest_yx
-        # [(route_weight, nx_route, orig_partial_edge, dest_partial_edge, orig_yx, dest_yx)]      
-        
-        point2 = np.array(hub_xy_dict[hub])
-        ## print(point2)
-
-        #print('hub distance ', hub_dist[0])
-        #print('location x ', hub_dist[0][4][0])
-
-        for i, house in enumerate(orig_xy_transf):
-            point1 = np.array(house)
-            euclid_dist = ((point2[1] - point1[0]) ** 2 + (point2[0] - point1[1]) ** 2) ** 0.5
-          
-            if euclid_dist < City.building_addr_df.loc[i,'euclid_hubdistance']:
-                City.building_addr_df.at[i,'euclid_hubdistance']=euclid_dist
-                City.building_addr_df.at[i,'euclid_nearesthub']=hub
-
-        #print(City.building_addr_df.at[0,'x'],City.building_addr_df.at[0,'y'])
-    
-    City.save_graph(name, data_folder)
-    print(City.building_addr_df)
-    ### 2.5 min is 150 seconds 
-    return 0
-
-def hub_clusters(City, hub_dictionary, orig_xy_transf, orig_edges,name, data_folder, cpu_count):
-    ### randomly generated hub locations is hub_dictionary
-    ### use k-means to cluster houses around hub locations
-    hub_num = len(hub_dictionary)
-    hub_names, hub_xy_transf = get_xy_transf_from_dict(hub_dictionary)
-    dest_edges = nearest_edges_hubs(City, hub_xy_transf, cpu_count)
-    
-    hub_xy_dict = dict(zip(hub_names, hub_xy_transf))
-    hub_edge_dict = dict(zip(hub_names, dest_edges))
-
-    ### first_paths returns [(route_weight, nx_route, orig_partial_edge, dest_partial_edge)]
-    for hub in hub_names:
-        print(hub)
-        #get distance of all current hub to all houses
-        hub_xy_transf_current = [hub_xy_dict[hub]] * len(orig_xy_transf)
-        dest_edges_current = [hub_edge_dict[hub]] * len(orig_xy_transf)
-        
-        # Returning route_weight, nx_route, orig_partial_edge, dest_partial_edge, orig_yx, dest_yx
-        # [(route_weight, nx_route, orig_partial_edge, dest_partial_edge, orig_yx, dest_yx)]    
-  
-        #@Job orig_xy_transf coming from load_network was labeled as orig_yx_tranf but it returns xy (in that order)
-        #shortes_paths works when both orig and hub are entered as xy coordinates (x = longitude, y = latitude like you would do when plotting a point on a graph)
-        hub_dist = City.shortest_paths(orig_xy_transf, hub_xy_transf_current, orig_edges, dest_edges_current, weight='travel_time', method='dijkstra', return_path=True, cpus=cpu_count)
-
-        ## point2 = np.array(hub_xy_dict[hub])
-        ## print(point2)
-
-        #print('hub distance ', hub_dist[0])
-        #print('location x ', hub_dist[0][4][0])
-        for i, row in enumerate(hub_dist):
-        # #for i, house in enumerate(orig_xy_transf):
-        #     point1 = np.array(house)
-        #     euclid_dist = ((point2[1] - point1[0]) ** 2 + (point2[0] - point1[1]) ** 2) ** 0.5
-
-            dist = row[0]
-
-            # location_x = row[4][0]
-            # location_y = row[4][1]
-
-            # house_index = City.building_addr_df.index[(City.building_addr_df['x'] == location_x) & (City.building_addr_df['y'] == location_y)].tolist()
-            if dist < City.building_addr_df.loc[i,'hubdistance']:
-                City.building_addr_df.at[i,'hubdistance']=dist
-                City.building_addr_df.at[i,'nearesthub']=hub
-                City.building_addr_df.at[i,'hub_x']=hub_dictionary[hub]['x']
-                City.building_addr_df.at[i,'hub_y']=hub_dictionary[hub]['y']
-            
-            # #if euclid_dist < City.building_addr_df.loc[i,'hubdistance']:
-            #     City.building_addr_df.at[i,'hubdistance']=euclid_dist
-            #     City.building_addr_df.at[i,'nearesthub']=hub
-            #     City.building_addr_df.at[i,'hub_x']=hub_dictionary[hub]['x']
-            #     City.building_addr_df.at[i,'hub_y']=hub_dictionary[hub]['y']
-
-        #print(City.building_addr_df.at[0,'x'],City.building_addr_df.at[0,'y'])
-    
-    City.save_graph(name, data_folder)
-    print(City.building_addr_df)
-    ### 2.5 min is 150 seconds 
-    return 0
-
-def hub_fitness(City, hub_dictionary):
-    return 1
-
-def add_points():
-    return 1
-
-def visualize_clusters(City, hub_dictionary, save=False):
-    hub_colors = ['blue', 'green', 'purple', 'pink', 'yellow']
-    hub_colors_dict = dict(zip(hub_dictionary.keys(), hub_colors))
-
-    print('Plotting figure...')
-
-    fig, ax = ox.plot_graph(City.graph, show=False, save=False, close=False,
-        figsize = City.figsize,
-        bgcolor = City.bgcolor,
-        edge_color = City.edge_color,
-        node_color = City.node_color,
-        edge_linewidth = City.edge_linewidth,
-        node_size = City.node_size)
-    
-    # add spots for the hubs
-    for hub_name, hub_value in hub_dictionary.items():
-        color_to_use = hub_colors_dict[hub_name]
-        current_label = hub_name
-        #print(current_label, point, color_to_use)
-        ax.scatter(hub_value['x'], hub_value['y'],
-            color=color_to_use, marker='o', s=100, label=current_label)
-
-    for index, row in City.building_addr_df.T.items():
-        color_to_use = hub_colors_dict[row['nearesthub']]
-        current_label = hub_name
-        ax.scatter(row['x'], row['y'],
-                    color=color_to_use, marker='o', s=5, label=current_label) 
-    
-    plt.show()
-
-    if save:
-        fig.savefig(f'data/plot_pngs/plot_{time.time()}.png')
-
-    return fig, ax
-
-
 @timer_decorator
 def main():
-    #initialization variables self.
-
+    #initialization variables
     cpu_count = None
-    ### what is the right info to import for Delft
-    name = 'delft_walk'
+    network_name = 'delft_walk'
+    cluster_name = 'delft_cluster'
     data_folder = 'data/'
-    #vehicle_type = 'bike' # walk, bike, drive, all (See osmnx documentation)
-    vehicle_type = 'walk'
-    ### Delft
-    #coordinates = [52.03, 51.96, 4.4, 4.3]
-
-    ### Delft City Center
-    #[N, S, E, W]
-    coordinates = [52.018347, 52.005217, 4.369142, 4.350504]
+    vehicle_type = 'walk' # walk, bike, drive, all (See osmnx documentation)
+    max_travel_time = 150 #time in seconds
     random_init = 100
-    start_pt_ct = 5
+
+
+    ### Delft City Center #coordinates = [52.018347, 52.005217, 4.369142, 4.350504]
+    ### Delft #coordinates = [52.03, 51.96, 4.4, 4.3]
+    #[N, S, E, W] coordiantes of location to analyse
+    coordinates = [52.018347, 52.005217, 4.369142, 4.350504]
+
+    start_pt_ct = 3 # number of starting hubs
+    calc_euclid = False #also calculate euclidean distances for first iteration?
+    generate_new_network = True # if true, new network will be generated, otherwise set to false to only load a network
+    load_clustering = True # if clustering crashed or finished, set to true to load the last iteration
+    visualize_clustering = True # if clusering images are generated
+
+    hub_colors = ['#FFE54F', '#82C5DA', '#C90808', '#FAA12A', '#498591', '#E64C4C', '#E4FFFF', '#CA5808', '#3F4854']
+    
     ###### ------- ######
     
-    coordinates_list = coordinates_to_tupple(coordinates)
-    coordinates_list_flip = flip_lat_long(coordinates_list)
+    random.seed(random_init)
+
+    coordinates_list = h.coordinates_to_tupple(coordinates)
+    coordinates_list_flip = h.flip_lat_long(coordinates_list)
     coordinates_transformed_yx = transform_coordinates(coordinates_list_flip)
-    coordinates_transformed_xy = flip_lat_long(coordinates_transformed_yx)
-    print(coordinates_transformed_xy)
+    coordinates_transformed_xy = h.flip_lat_long(coordinates_transformed_yx)
 
-
-    # ### generate new network, only run at beginning
-    #generate_network(name, data_folder, vehicle_type, coordinates)
+    ### generate new network, only run at beginning
+    if generate_new_network: generate_network(network_name, data_folder, vehicle_type, coordinates)
 
     ### load network from file, run after network is generated
-    City, orig_xy_transf = load_network(name, data_folder)
-    reset_hub_df_values(City)
+    City, orig_yx_transf = load_network(network_name, data_folder)
+
+    ###initiate clustering
+    Clusters = NetworkClustering('delftclustering')
+    Clusters.reset_hub_df(City)
+
+    ### if clustering crashed or finishes, load the latest iteration
+    if load_clustering: Clusters.load_clustering(cluster_name, data_folder)
+    print('Starting with iteration ', Clusters.iteration)
     
     #City.ne = None
 
-    orig_edges = nearest_edges_buildings(City, orig_xy_transf, name, data_folder, cpu_count)
+    orig_edges = h.nearest_edges_buildings(City, orig_yx_transf, network_name, data_folder, cpu_count)
 
-    ### generate random points for hubs and cluster houses based on closest hub
+    #initialized variables - do not change
+    iteration = Clusters.iteration
+    time_check = False
+    max_time_list = m.inf 
 
-    ###possible class functions
-    ###self. hub_dictionary and self.City
-    hub_dictionary = generate_random_points(coordinates_transformed_xy, start_pt_ct, random_init) 
-    print(hub_dictionary)      
+    #option to change/adjust these as clusering settings
+    point_count = 1 #the number of new hubs to add when the fitness is not reached
+    max_distance = 50 #when distance the hub moves during k-means clustering, is less than max_distance, the hub will stop moving
+    max_iterations = 30 #maximum iterations in case the max_distance moves a lot for too long
+
+    while not time_check and iteration < 10:
+        ### reset all DF values to default for iteration
+        print('iteration: ', iteration)
+        Clusters.reset_hub_df(City)
+        Clusters.iteration = iteration
+        Clusters.save_iteration(cluster_name, data_folder)
+
+        if iteration == 1:
+            ### only on first iteration generate random points for hubs and cluster houses based on closest hub
+            Clusters.generate_random_points(coordinates_transformed_xy, start_pt_ct)
+            if visualize_clustering: v.visualize_clusters(City, Clusters, 'locations_1', hub_colors, save=True)
+            print(Clusters.hub_list_dictionary) 
+            Clusters.hub_clusters(City, orig_yx_transf, orig_edges, cluster_name, data_folder, cpu_count)
+            if calc_euclid:
+                Clusters.hub_clusters_euclidean(orig_yx_transf, cluster_name, data_folder)
+                if visualize_clustering: v.euclid_visualize_clusters(City, Clusters, 'clusters_1_euclid', hub_colors, save=True)
+            if visualize_clustering: v.visualize_clusters(City, Clusters, 'clusters_1', hub_colors, save=True)
+
+        else:
+            ### on all other iterations, add a new hub each time the while loop runs 
+            Clusters.add_points(point_count, coordinates_transformed_xy)
+            print('added hub', Clusters.hub_list_dictionary)
+            image_title1 = 'locations_' + str(iteration)
+            if visualize_clustering: v.visualize_clusters(City, Clusters, image_title1, hub_colors, save=True)
+            Clusters.hub_clusters(City, orig_yx_transf, orig_edges, cluster_name, data_folder, cpu_count)
+            if calc_euclid:
+                Clusters.hub_clusters_euclidean(orig_yx_transf, cluster_name, data_folder)
+                image_title_euclid = 'clusters_' + str(iteration) + '_euclid'
+                if visualize_clustering: v.euclid_visualize_clusters(City, Clusters, image_title_euclid, hub_colors, save=True)
+            image_title2 = 'clusters_' + str(iteration)
+            if visualize_clustering: v.visualize_clusters(City, Clusters, image_title2, hub_colors, save=True)
+
+        ###optimize hub locations
+        move_distance = Clusters.new_hub_location(City)
+        i = 0
+        while move_distance > max_distance and i < max_iterations:
+            Clusters.hub_clusters(City, orig_yx_transf, orig_edges, cluster_name, data_folder, cpu_count)
+            if calc_euclid: Clusters.hub_clusters_euclidean(orig_yx_transf, cluster_name, data_folder)
+            move_distance = Clusters.new_hub_location(City)
+            print('moved hubs on average ', move_distance)
+
+            i += 1
+
+        ### visualized optimized hub locations
+        image_title = 'clusters_' + str(iteration) + '_optimized'
+        image_title_euclid = 'clusters_' + str(iteration) + '_euclid_optimized'
+        if visualize_clustering: v.visualize_clusters(City, Clusters, image_title, hub_colors, save=True)
+        if calc_euclid and visualize_clustering: v.euclid_visualize_clusters(City, Clusters, image_title_euclid, hub_colors, save=True) 
+        
+        ###check fitness function
+        time_check, max_time_list = Clusters.hub_fitness(City, max_travel_time)
+        iteration += 1
+        max_distance -= 3
+        max_iterations += 10
     
-    hub_clusters(City, hub_dictionary, orig_xy_transf, orig_edges, name, data_folder, cpu_count)
-
-    hub_fitness(City, hub_dictionary)
-
-    visualize_clusters(City, hub_dictionary)
-
-    '''
-        (done) 1. Initilize clusters - generate_random_starting_points
-        (done), job 2. Find distances - city.shortest_paths
-        (done) 3. Find dest with shortest weight for each orig
-            - these are the "clusters"
-        4. Look up the geometric location of each orig
-        5. Compute new "centroids"
-        6. Find new distances (... repeat 2-5)
-        7. Stop when nothing moves (or moves less than X amount)
-        8. If any distance > 2.5min. Add more clusters and start from 1.
-    '''
-
 if __name__ == '__main__':
     main()

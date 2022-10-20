@@ -9,7 +9,7 @@ Jirri van den Bos, TU Delft (load building addresses)
 Classes:
     - CityNetwork
 
-    Functions:
+    Methods:
         - load_osm_graph: load osm data to networkx graph online or local
         - add_rel_attributes: calculate speed, length and travel_time
         - project_graph: project graph on different coordinate system
@@ -50,15 +50,15 @@ class CityNetwork():
     edge_color = 'lightgray'
     node_color = 'white'
     edge_linewidth = 1
-    node_size=2
+    node_size=3
     route_color = '#C90808'
-    route_width = 1
+    route_width = 3
     origin_color = '#FFE54F'
     destination_color = '#82C5DA'
     marker_color = 'purple'
     font_color = 'lightgray'
     font_size = 7
-
+    
     def __init__(self, name: str, coordinates: list, transport_type):
         self.name = name
         self.coordinates = coordinates
