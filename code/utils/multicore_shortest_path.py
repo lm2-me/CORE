@@ -10,6 +10,9 @@ from osmnx.distance import nearest_edges
 from osmnx.distance import great_circle_vec
 from osmnx.utils_graph import get_route_edge_attributes
 
+import numpy as np
+import osmnx as ox
+
 import multiprocessing as mp
 from functools import partial
 
@@ -17,6 +20,7 @@ from pyproj import Transformer
 
 import math
 import tqdm
+import time
 
 '''
     The core of this code is written by Nathan Rooy in the
@@ -154,6 +158,33 @@ def _get_edge_geometry(G, edge):
     return LineString([
         (G.nodes[edge[0]]['x'], G.nodes[edge[0]]['y']),
         (G.nodes[edge[1]]['x'], G.nodes[edge[1]]['y'])])
+
+# Find the closest hub in as set of shortest paths
+# Format input {hub_1_idx: [[weight, path, ls_origin, ls_dest], ...], hub_2_idx: [[...], ...]}
+def closest_hub(paths_dict):
+    # List concatination to extract the weights for all paths for each hub
+    path_weights = np.array([[data[0] for data in hub] for hub in paths_dict.values()])
+    
+    # Calculate lowest weight and closest hub
+    lowest_weight = np.amin(path_weights.T, axis=1)
+    closest_hub_idx = np.argmin(path_weights.T, axis=1)
+    
+    # Convert to Python list to add None values
+    closest_hub_idx = closest_hub_idx.tolist()
+
+    # Store demand points that are assigned as coordinate
+    assigned_demand_points = []
+
+    # Set idx with weight inf to None
+    for i, weight in enumerate(lowest_weight):
+        if weight == float('inf'):
+            closest_hub_idx[i] = None
+        else:
+            assigned_demand_points.append(i)
+
+    closest_hub_idx = np.array(closest_hub_idx)
+
+    return closest_hub_idx, assigned_demand_points
 
 # Single_shortest path (based on taxicab, but using a* algorithm)
 # Several bugs resolved by Job de Vogel
@@ -308,6 +339,155 @@ def _single_shortest_path(G, orig_yx, dest_yx, orig_edge, dest_edge,
 
     return route_weight, nx_route, orig_partial_edge, dest_partial_edge
 
+def _single_source_shortest_path(graph, orig, dest, orig_edge, dest_edges, method='dijkstra', weight='travel_time', cutoff=None):
+    if method == 'dijkstra':
+        nx_routes = nx.single_source_dijkstra(graph, orig_edge[0], weight=weight, cutoff=cutoff)
+    elif method == 'bellman-ford':
+        nx_routes = nx.single_source_bellman_ford(graph, orig_edge[0], weight=weight, cutoff=cutoff)
+    else:
+        raise ValueError('Method does not exist')
+
+    # Extract the weights and routes of the paths
+    route_weights, nx_routes = nx_routes
+
+    # Retrieve origin edge geometry
+    orig_geo = _get_edge_geometry(graph, orig_edge)
+
+    result = []
+    for destination, dest_edge in zip(dest, dest_edges):
+
+        # Check if destination within cutoff range
+        if dest_edge[0] in nx_routes.keys():
+
+            # Check if on same line, if so, use simplified calculation
+            if orig_edge == dest_edge:
+                # Revert x and y coordinates        
+                p_o, p_d = Point(orig[::-1]), Point(destination[::-1])
+
+                # Get edges from graph
+                edge_geo = graph.edges[orig_edge]['geometry']
+
+                # Project the edges
+                orig_clip = edge_geo.project(p_o, normalized=True)
+                dest_clip = edge_geo.project(p_d, normalized=True)
+
+                # Calculate the linelength between two points on a line
+                orig_partial_edge = substring(edge_geo, orig_clip, dest_clip, normalized=True)  
+                dest_partial_edge = []
+                nx_route = []
+            else:
+                # Use the previously calculated nx_routes
+                p_o, p_d = Point(orig[::-1]), Point(destination[::-1])
+
+                dest_geo = _get_edge_geometry(graph, dest_edge)
+
+                orig_clip = orig_geo.project(p_o, normalized=True)
+                dest_clip = dest_geo.project(p_d, normalized=True)
+
+                orig_partial_edge_1 = substring(orig_geo, orig_clip, 1, normalized=True)
+                orig_partial_edge_2 = substring(orig_geo, 0, orig_clip, normalized=True)
+                dest_partial_edge_1 = substring(dest_geo, dest_clip, 1, normalized=True)
+                dest_partial_edge_2 = substring(dest_geo, 0, dest_clip, normalized=True)
+
+                # Retrieve the right weigh based on the hub edge
+                route_weight = route_weights[dest_edge[0]]
+
+                # Retrieve the right nx_route based on the hub edge
+                nx_route = nx_routes[dest_edge[0]]
+
+                # When there is no path available, edge case:
+                if len(nx_route) == 0:
+                    orig_partial_edge = []
+                    dest_partial_edge = []
+                # When the nx route is just a single node, this is a bit of an edge case
+                elif len(nx_route) == 1:
+                    nx_route = []
+                    if orig_partial_edge_1.intersects(dest_partial_edge_1):
+                        orig_partial_edge = orig_partial_edge_1
+                        dest_partial_edge = dest_partial_edge_1
+                        
+                    if orig_partial_edge_1.intersects(dest_partial_edge_2):
+                        orig_partial_edge = orig_partial_edge_1
+                        dest_partial_edge = dest_partial_edge_2
+                        
+                    if orig_partial_edge_2.intersects(dest_partial_edge_1):
+                        orig_partial_edge = orig_partial_edge_2
+                        dest_partial_edge = dest_partial_edge_1
+                        
+                    if orig_partial_edge_2.intersects(dest_partial_edge_2):
+                        orig_partial_edge = orig_partial_edge_2
+                        dest_partial_edge = dest_partial_edge_2
+                elif len(nx_route) == 2:
+                    route_edge = _get_edge_geometry(graph, (nx_route[0], nx_route[1], 0))
+                    if route_edge.intersects(orig_partial_edge_1):
+                        orig_partial_edge = orig_partial_edge_1
+                    
+                    if route_edge.intersects(orig_partial_edge_2):
+                        orig_partial_edge = orig_partial_edge_2
+
+                    if route_edge.intersects(dest_partial_edge_1):
+                        dest_partial_edge = orig_partial_edge_1
+
+                    if route_edge.intersects(orig_partial_edge_2):
+                        dest_partial_edge = orig_partial_edge_2          
+                # when routing across two or more edges
+                elif len(nx_route) >= 3:
+                    origin_overlapping = False
+                    destination_overlapping = False
+                    
+                    # Check overlap with first route edge
+                    route_orig_edge = _get_edge_geometry(graph, (nx_route[0], nx_route[1], 0))
+                    if route_orig_edge.intersects(orig_partial_edge_1) and route_orig_edge.intersects(orig_partial_edge_2):
+                        origin_overlapping = True
+
+                    # determine which origin partial edge to use
+                    route_orig_edge = _get_edge_geometry(graph, (nx_route[1], nx_route[2], 0)) 
+                    if route_orig_edge.intersects(orig_partial_edge_1):
+                        orig_partial_edge = orig_partial_edge_1
+                    else:
+                        orig_partial_edge = orig_partial_edge_2
+
+                    # Resolve destination
+                    # Check overlap with last route edge
+                    route_dest_edge = _get_edge_geometry(graph, (nx_route[-2], nx_route[-1], 0))
+                    if route_dest_edge.intersects(dest_partial_edge_1) and route_dest_edge.intersects(dest_partial_edge_2):
+                        destination_overlapping = True
+
+                    # determine which destination partial edge to use
+                    route_dest_edge = _get_edge_geometry(graph, (nx_route[-3], nx_route[-2], 0))
+
+                    if route_dest_edge.intersects(dest_partial_edge_1):
+                        dest_partial_edge = dest_partial_edge_1
+                    else:
+                        dest_partial_edge = dest_partial_edge_2
+                    
+                    if origin_overlapping:
+                        nx_route = nx_route[1:]
+                    if destination_overlapping:
+                        nx_route = nx_route[:-1]
+                    
+                    if len(nx_route) == 1:
+                        nx_route = []
+            
+                # Final check
+                if orig_partial_edge:
+                    if len(orig_partial_edge.coords) <= 1:
+                        orig_partial_edge = []
+                if dest_partial_edge:
+                    if len(dest_partial_edge.coords) <= 1:
+                        dest_partial_edge = []
+
+            data = [route_weight, nx_route, orig_partial_edge, dest_partial_edge]
+            result.append(data)
+        
+        # If destination not within cutoff range
+        else:
+            data = [float('inf'), [], [], []]
+            result.append(data)
+    
+    # Return all the paths from this origin
+    return result
+
 # Convert to multicore process based on osmnx method
 # This code is based on the shortest_path method
 # from OSMnx
@@ -352,3 +532,73 @@ def multicore_shortest_path(graph, orig, dest, orig_edge, dest_edge, method='dij
         return result
     else:  # pragma: no cover
         raise ValueError("Please check shortest path inputs.")
+
+# Use Single Source Dijkstra algorithm to compute shortest
+# paths from one hub to multiple houses, with optional cutoff.
+def multicore_single_source_shortest_path(graph, orig, dest, dest_edges, method='dijkstra', weight='travel_time', cutoff=None, cpus=1):
+    # Check the format of orig and change to list
+    if isinstance(orig, tuple):
+        orig = [orig]
+    elif isinstance(orig, list):
+        pass
+    else:
+        raise TypeError('Orig should be list, or single tuple.')
+
+    # Check the format of dest and change to list
+    if isinstance(dest, tuple):
+        orig = [orig]
+    elif isinstance(dest, list):
+        pass
+    else:
+        raise TypeError('Dest should be list, or single tuple.')
+
+    # Check the format of dest_edges and change to list   
+    if isinstance(dest_edges, tuple):
+        orig = [orig]
+    elif isinstance(dest_edges, list):
+        pass
+    else:
+        raise TypeError('Dest should be list, or single tuple.')
+
+    y_orig, x_orig = list(map(list, zip(*orig)))
+    orig_edges = ox.nearest_edges(graph, x_orig, y_orig)
+
+    orig_paths = {}
+    if cpus == 1:
+        print(f"Solving {len(orig)} single sources using {method} algorithm with cutoff {cutoff} on weight '{weight}' using {cpus} CPUs...")
+
+        for orig, orig_edge in zip(orig, orig_edges):
+            paths = _single_source_shortest_path(graph, orig, dest, orig_edge, dest_edges, method=method, weight=weight, cutoff=cutoff)
+
+            orig_paths[orig] = paths
+    else:
+        if cpus is None:
+            cpus = mp.cpu_count()
+        cpus = min(cpus, mp.cpu_count())
+
+        if cpus > 1:
+            print("USER-WARNING: Make sure you put the multicore_single_source_shortest_path function in a 'if __name__ == '__main__' statement!")
+
+            if cutoff is not None:
+                print("USER-WARNING: In some cases setting cpus>1 increases computation time when cutoff is a low value. Multicore processing boosts performance when cutoff=None.")
+
+        print(f"Solving {len(orig)} single sources using {method} algorithm with cutoff {cutoff} on weight '{weight}' using {cpus} CPUs...")
+
+        if cpus > len(orig):
+            print("USER-WARNING: Number of origins to compute is lower than number of cpu cores used. It is recommended to set cpus=1 for better performance.")
+        
+        # If multi-threading, calculate shortest paths in parallel
+        args = ((graph, o, dest, orig_edge, dest_edges) for o, orig_edge in zip(orig, orig_edges))
+        pool = mp.Pool(cpus)
+
+        # Add kwargs using partial method
+        sma = pool.starmap_async(partial(_single_source_shortest_path, method=method, weight=weight, cutoff=cutoff), tqdm.tqdm(args, total=len(orig)))
+
+        result = sma.get()
+        pool.close()
+        pool.join()
+    
+        for o, res in zip(orig, result):
+            orig_paths[o] = res
+        
+    return orig_paths
