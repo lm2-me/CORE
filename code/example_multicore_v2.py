@@ -12,7 +12,7 @@ import time
 def main():
 
     # LOAD THE NETWORK (SIMILAR AS BEFORE)
-    name = 'Delft_center_walk'
+    name = 'Full_Delft_walk'
     data_folder = 'data/'
     vehicle_type = 'walk' # walk, bike, drive, all (See osmnx documentation)
 
@@ -42,22 +42,23 @@ def main():
     # Compute shortest paths by hub for n clustering iterations
     # Hubs are randomly placed each iteration, just as example
     cluster_iterations = []
-    num_hubs = 10
+    num_hubs = 3
     num_iterations = 1
 
     for i in range(num_iterations):
+        start=time.time()
         # Random positions of hubs
-        random.seed(2)
+        # random.seed(2)
         hubs = [(random.randint(6801030, 6803490), random.randint(484261, 486397)) for _ in range(num_hubs)]
 
         print(f"Cluster iteration {i} started...")
 
         # Calculate shortest paths by hub
         # Requires the following inputs: graph, orig(hubs), dest(houses), dest_edges(pre-calculated), method='dijkstra', weight='travel_time', cutoff=None, cpus=None
-        paths = multicore_single_source_shortest_path(City.graph, hubs, dest_yx_transf, dest_edges, weight='travel_time', cutoff=120, cpus=1)
+        paths = multicore_single_source_shortest_path(City.graph, hubs, dest_yx_transf, dest_edges, weight='travel_time', cutoff=300, cpus=1)
 
         paths_df = paths_to_dataframe(paths, hubs=hubs)
-        print(paths_df)
+        # print(paths_df)
 
         '''
         CALCULATE FITNESS HERE
@@ -67,10 +68,10 @@ def main():
         # Add to cluster_iterations results
         cluster_iterations.append(paths)
 
-        print(f"Cluster iteration {i} finished...")
-        print("--------------------------------")
-    
+        end=time.time()
 
+        print(f"Cluster iteration {i} finished in {end-start}s...")
+        print("--------------------------------")
 
     # PLOTTING CAN BE DONE THROUGH:
     # - EASY: The CityNetwork class using CityNetwork.plot(kwargs)
@@ -102,7 +103,7 @@ def main():
     # WARNING: THIS PROCESS MEMORY BOUND, USES UP TO 40 GB COMMITED MEMORY FOR FULL DELFT NETWORK dpi=300
     start = time.time()
     
-    multiplot_save(cluster_iterations, City, dest_yx_transf, closest_hub, colors, session_name, dpi=50, cpus=None)
+    multiplot_save(cluster_iterations, City, dest_yx_transf, closest_hub, colors, session_name, dpi=300, cpus=None)
     
     end = time.time()
     print(end-start)

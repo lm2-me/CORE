@@ -1,3 +1,4 @@
+from multiprocessing.sharedctypes import Value
 import networkx as nx
 
 from shapely.geometry import Point
@@ -69,6 +70,10 @@ def transform_coordinates(coordinate: tuple or list, from_crs="epsg:4326", to_cr
 
     return result
 
+'''
+STILL SOME SERIOUS PROBLEMS HERE!!
+'''
+
 # Calculate the total weight of the path, including partial edges
 def _compute_route_weight(graph, route, weight, ls_orig, ls_dest, orig_edge, dest_edge):
     '''
@@ -82,12 +87,6 @@ def _compute_route_weight(graph, route, weight, ls_orig, ls_dest, orig_edge, des
     if type(ls_orig) == LineString:
         x, y = zip(*ls_orig.coords)
         
-        """
-        PROBLEM
-
-        great_circle_vec should be calculated with latitudes and longitudes!
-        """
-
         y, x = transform_coordinates((y,x), from_crs="epsg:3857", to_crs="epsg:4326")
         
         partial_orig_edge_length = 0
@@ -99,6 +98,8 @@ def _compute_route_weight(graph, route, weight, ls_orig, ls_dest, orig_edge, des
             partial_orig_edge_weight = partial_orig_factor * graph.edges[orig_edge][weight]
         else:
             partial_orig_edge_weight = 0
+    else:
+        partial_orig_edge_weight = 0
 
     if type(ls_dest) == LineString:
         x, y = zip(*ls_dest.coords)
@@ -109,8 +110,13 @@ def _compute_route_weight(graph, route, weight, ls_orig, ls_dest, orig_edge, des
         for i in range(0, len(x)-1):
             partial_dest_edge_length += great_circle_vec(y[i], x[i], y[i+1], x[i+1])
         
-        partial_dest_factor = partial_dest_edge_length / dest_edge_length
-        partial_dest_edge_weight = partial_dest_factor * graph.edges[orig_edge][weight]
+        if dest_edge_length > 0:
+            partial_dest_factor = partial_dest_edge_length / dest_edge_length
+            partial_dest_edge_weight = partial_dest_factor * graph.edges[orig_edge][weight]
+        else:
+            partial_dest_edge_weight = 0
+    else:
+        partial_dest_edge_weight = 0
     
     total_route_weight = 0
     if route:
@@ -319,17 +325,7 @@ def _single_shortest_path(G, orig_yx, dest_yx, orig_edge, dest_edge,
             if len(dest_partial_edge.coords) <= 1:
                 dest_partial_edge = []
 
-    if len(nx_route) > 0:
-        route_weight = _compute_route_weight(G, nx_route, weight, orig_partial_edge, dest_partial_edge, orig_edge, dest_edge)
-    else:
-        if weight == 'length':
-            route_weight = math.dist(orig_yx, dest_yx)
-        elif weight == 'travel_time':
-            route_weight = math.dist(orig_yx, dest_yx) * 1.3
-        elif weight == 'experience':
-            route_weight = math.dist(orig_yx, dest_yx)
-        else:
-            print(f'Cannot assign weight for {weight} with impossible route.')
+    route_weight = _compute_route_weight(G, nx_route, weight, orig_partial_edge, dest_partial_edge, orig_edge, dest_edge)
 
     # If the nodes do not have to be returned: replace route by None, so that
     # parallel computation does not have to store the route in memory every path
@@ -475,6 +471,8 @@ def _single_source_shortest_path(graph, orig, dest, orig_edge, dest_edges, metho
                 if dest_partial_edge:
                     if len(dest_partial_edge.coords) <= 1:
                         dest_partial_edge = []
+
+            route_weight = _compute_route_weight(graph, nx_route, weight, orig_partial_edge, dest_partial_edge, orig_edge, dest_edge)
 
             data = [route_weight, nx_route, orig_partial_edge, dest_partial_edge]
             result.append(data)
