@@ -1,11 +1,9 @@
 from utils.multicore_shortest_path import paths_to_dataframe
 from network_delft import CityNetwork, timer_decorator
-from utils.multicore_shortest_path import transform_coordinates
 from utils.multicore_shortest_path import multicore_single_source_shortest_path, closest_hub
-from utils.multiplot import multiplot_save, format_paths_for_plot
+from utils.multiplot import multiplot_save
 
 import random
-
 import time
 
 @timer_decorator
@@ -15,14 +13,18 @@ def main():
     data_folder = 'data/'
     vehicle_type = 'walk' # walk, bike, drive, all (See osmnx documentation)
 
+    # Give a name, to avoid overwriting your plots
     session_name = input("Please insert a name for this multiplot session: ")
 
+    # Load the CityNetwork
     City = CityNetwork.load_graph(name, data_folder)
+
 
     # CALCULATE NEAREST EDGES IF NOT AVAILABLE IN City.ne    
     City.ne = None
     dest_edges = City.nearest_edges(5, cpus=12)
     City.save_graph(name, data_folder)
+
 
     # REMOVE OUTLIERS FROM A CERTAIN DISTANCE
     City.drop_outliers(30)
@@ -30,12 +32,9 @@ def main():
 
     # Extract the new destinations skipping the outliers
     destinations = list(City.building_addr_df.loc[:, ['y', 'x']].itertuples(index=False, name=None))
-    """--------------------------------------------------"""
-
 
 
     # MULTICORE V2 STARTS HERE:
-
     # Compute shortest paths by hub for n clustering iterations
     # Hubs are randomly placed each iteration, just as example
     cluster_iterations = []
@@ -43,10 +42,11 @@ def main():
     num_iterations = 1
 
     for i in range(num_iterations):
-        # Random positions of hubs
+        # Random seed, to compare results for different parameters
         random.seed(2)
 
         # Delft Center
+        # Should be defined by k++ version of k-means in final algorithm
         hubs = [(random.randint(6801030, 6803490), random.randint(484261, 486397)) for _ in range(num_hubs)]
         
         # Full Delft
@@ -64,8 +64,10 @@ def main():
         print(paths_df)
 
         '''
+
         CALCULATE FITNESS HERE
-        REPOSITION THE HUBS BASED ON K-MEANS CLUSTERING        
+        REPOSITION THE HUBS BASED ON K-MEANS CLUSTERING      
+        
         '''
 
         # Add to cluster_iterations results
@@ -74,23 +76,20 @@ def main():
         end=time.time()
 
         print(f"Cluster iteration {i} finished in {end-start}s...")
-        print("--------------------------------")
-
-    # PLOTTING CAN BE DONE THROUGH:
-    # - EASY: The CityNetwork class using CityNetwork.plot(kwargs)
-    # - MULTICORE: The multiplot package, to save many images
 
     # SAVING MULTIPLE CLUSTERING ITERATION PLOTS, MULTICORE
-    # Show is always set to False in this case!
-
-    # WARNING: THIS PROCESS MEMORY BOUND, USES UP TO 40 GB COMMITED MEMORY FOR FULL DELFT NETWORK dpi=300
+    # WARNING: THIS PROCESS IS MEMORY BOUND, USES UP TO 40 GB COMMITED MEMORY FOR FULL DELFT NETWORK dpi=300, num_hubs=48
+    # This solution solves the waiting time for generating all the pngs.
+    # It can also be done after the algorithm has finished, and be executed
+    # on multiple computers. For just checking the result, it is recommended
+    # to only use City.plot(**kwargs) once for the final hub setup.
     start = time.time()
     
     colors = ['red', 'orange', 'yellow', 'pink', 'purple', 'peru']  
     multiplot_save(cluster_iterations, City, destinations, closest_hub, colors, session_name, dpi=300, cpus=None)
     
     end = time.time()
-    print(end-start)
+    print(f"Finished multiplot in {end-start}s")
 
 if __name__ == '__main__':
     main()
