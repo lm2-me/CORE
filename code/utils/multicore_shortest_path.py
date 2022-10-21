@@ -1,11 +1,9 @@
-from multiprocessing.sharedctypes import Value
 import networkx as nx
 
 from shapely.geometry import Point
 from shapely.geometry import LineString
 from shapely.ops import substring
 
-from osmnx.distance import nearest_edges
 from osmnx.distance import great_circle_vec
 from osmnx.utils_graph import get_route_edge_attributes
 
@@ -21,9 +19,11 @@ from pyproj import Transformer
 import tqdm
 
 '''
-    The core of this code is written by Nathan Rooy in the
-    taxicab Python package. This code, written by Job de Vogel
-    adds several functionalities:
+    This code, written by Job de Vogel, builds further on the
+    work of Taxicab (Nathan Rooy) and OSMnx (Gboeing), improving
+    the functionalities and efficiency of shortest path computations.
+    
+    The following functionalies have been added:
 
     - The shortest paths can now be calculated using multicore
     processing. For this the code OSMnx by gboeing was implemented.
@@ -36,6 +36,9 @@ import tqdm
     - The code of Taxicab contains multiple bugs related to exceptional
     cases for short routes. This package solves that issue.
     - Adds support for multicore single source Dijkstra calculations
+    with cutoff values.
+    - Convert the shortest path results to a Dataframe.
+    - Multiple upgrades to improve speed performance.
 '''
 
 def transform_coordinates(coordinate: tuple or list, from_crs="epsg:4326", to_crs="epsg:3857"):
