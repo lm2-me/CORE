@@ -20,9 +20,9 @@ def main():
     City = CityNetwork.load_graph(name, data_folder)
 
     # CALCULATE NEAREST EDGES IF NOT AVAILABLE IN City.ne    
-    # City.ne = None
-    # dest_edges = City.nearest_edges(x, y, 5, cpus=12)
-    # City.save_graph(name, data_folder)
+    City.ne = None
+    dest_edges = City.nearest_edges(5, cpus=12)
+    City.save_graph(name, data_folder)
 
     # REMOVE OUTLIERS FROM A CERTAIN DISTANCE
     City.drop_outliers(30)
