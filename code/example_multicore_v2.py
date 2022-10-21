@@ -12,7 +12,7 @@ import time
 def main():
 
     # LOAD THE NETWORK (SIMILAR AS BEFORE)
-    name = 'Full_Delft_walk'
+    name = 'Delft_center_walk'
     data_folder = 'data/'
     vehicle_type = 'walk' # walk, bike, drive, all (See osmnx documentation)
 
@@ -20,21 +20,16 @@ def main():
 
     City = CityNetwork.load_graph(name, data_folder)
 
-    coordinates = City.building_addr_df.loc[:, ['latitude', 'longitude']]
-    destinations = list(coordinates.itertuples(index=False, name=None))
-
-    dest_yx_transf = transform_coordinates(destinations)
-
-    # CALCULATE NEAREST EDGES IF NOT AVAILABLE IN City.ne
-    # y, x = list(map(list, zip(*dest_yx_transf)))
-
+    # CALCULATE NEAREST EDGES IF NOT AVAILABLE IN City.ne    
     # City.ne = None
     # dest_edges = City.nearest_edges(x, y, 5, cpus=12)
     # City.save_graph(name, data_folder)
+
+    City.drop_outliers(30)
     dest_edges = City.ne
+
+    destinations = list(City.building_addr_df.loc[:, ['y', 'x']].itertuples(index=False, name=None))
     """--------------------------------------------------"""
-
-
 
 
     # MULTICORE V2 STARTS HERE:
@@ -42,23 +37,24 @@ def main():
     # Compute shortest paths by hub for n clustering iterations
     # Hubs are randomly placed each iteration, just as example
     cluster_iterations = []
-    num_hubs = 3
+    num_hubs = 50
     num_iterations = 1
 
     for i in range(num_iterations):
         start=time.time()
         # Random positions of hubs
-        # random.seed(2)
+        random.seed(2)
         hubs = [(random.randint(6801030, 6803490), random.randint(484261, 486397)) for _ in range(num_hubs)]
+        # hubs = [(random.randint(6792760, 6805860), random.randint(478510, 490000)) for _ in range(num_hubs)]
 
         print(f"Cluster iteration {i} started...")
 
         # Calculate shortest paths by hub
         # Requires the following inputs: graph, orig(hubs), dest(houses), dest_edges(pre-calculated), method='dijkstra', weight='travel_time', cutoff=None, cpus=None
-        paths = multicore_single_source_shortest_path(City.graph, hubs, dest_yx_transf, dest_edges, weight='travel_time', cutoff=300, cpus=1)
+        paths = multicore_single_source_shortest_path(City.graph, hubs, destinations, dest_edges, skip_non_shortest=False, weight='travel_time', cutoff=600, cpus=12)
 
         paths_df = paths_to_dataframe(paths, hubs=hubs)
-        # print(paths_df)
+        print(paths_df)
 
         '''
         CALCULATE FITNESS HERE
@@ -77,7 +73,7 @@ def main():
     # - EASY: The CityNetwork class using CityNetwork.plot(kwargs)
     # - MULTICORE: The multiplot package, to save many images
 
-    colors = ['red', 'orange', 'yellow', 'blue', 'green', 'black', 'gray', 'pink', 'purple', 'peru']
+    colors = ['red', 'orange', 'yellow', 'pink', 'purple', 'peru']
 
 
 
@@ -103,7 +99,7 @@ def main():
     # WARNING: THIS PROCESS MEMORY BOUND, USES UP TO 40 GB COMMITED MEMORY FOR FULL DELFT NETWORK dpi=300
     start = time.time()
     
-    multiplot_save(cluster_iterations, City, dest_yx_transf, closest_hub, colors, session_name, dpi=300, cpus=None)
+    multiplot_save(cluster_iterations, City, destinations, closest_hub, colors, session_name, dpi=300, cpus=None)
     
     end = time.time()
     print(end-start)

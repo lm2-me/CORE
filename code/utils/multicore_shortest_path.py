@@ -70,10 +70,6 @@ def transform_coordinates(coordinate: tuple or list, from_crs="epsg:4326", to_cr
 
     return result
 
-'''
-STILL SOME SERIOUS PROBLEMS HERE!!
-'''
-
 # Calculate the total weight of the path, including partial edges
 def _compute_route_weight(graph, route, weight, ls_orig, ls_dest, orig_edge, dest_edge):
     '''
@@ -334,7 +330,7 @@ def _single_shortest_path(G, orig_yx, dest_yx, orig_edge, dest_edge,
 
     return route_weight, nx_route, orig_partial_edge, dest_partial_edge
 
-def _single_source_shortest_path(graph, orig, dest, orig_edge, dest_edges, method='dijkstra', weight='travel_time', cutoff=None):
+def _single_source_shortest_path(graph, orig, dest, orig_edge, dest_edges, path_weights=None, method='dijkstra', weight='travel_time', cutoff=None):
     if method == 'dijkstra':
         nx_routes = nx.single_source_dijkstra(graph, orig_edge[0], weight=weight, cutoff=cutoff)
     elif method == 'bellman-ford':
@@ -349,10 +345,22 @@ def _single_source_shortest_path(graph, orig, dest, orig_edge, dest_edges, metho
     orig_geo = _get_edge_geometry(graph, orig_edge)
 
     result = []
-    for destination, dest_edge in zip(dest, dest_edges):
+    
+    for i, (destination, dest_edge) in enumerate(zip(dest, dest_edges)):
 
         # Check if destination within cutoff range
         if dest_edge[0] in nx_routes.keys():
+
+            # Path computations from orig to dest will be skipped if an
+            # earlier weight value for dest was already lower than 
+            # the weight computed by single source computation. This might
+            # result in very rare occasions of not finding the closest hub
+            # but almost the closest hub, but saves on computation time.
+            if path_weights is not None:
+                 if path_weights[i] < route_weights[dest_edge[0]]:
+                    data = [float('inf'), [], [], []]
+                    result.append(data)
+                    continue
 
             # Check if on same line, if so, use simplified calculation
             if orig_edge == dest_edge:
@@ -474,6 +482,9 @@ def _single_source_shortest_path(graph, orig, dest, orig_edge, dest_edges, metho
 
             route_weight = _compute_route_weight(graph, nx_route, weight, orig_partial_edge, dest_partial_edge, orig_edge, dest_edge)
 
+            if path_weights is not None:
+                path_weights[i] = route_weight
+
             data = [route_weight, nx_route, orig_partial_edge, dest_partial_edge]
             result.append(data)
         
@@ -483,7 +494,10 @@ def _single_source_shortest_path(graph, orig, dest, orig_edge, dest_edges, metho
             result.append(data)
     
     # Return all the paths from this origin
-    return result
+    if path_weights != None:
+        return result, path_weights
+    else:
+        return result
 
 # Convert to multicore process based on osmnx method
 # This code is based on the shortest_path method
@@ -532,7 +546,7 @@ def multicore_shortest_path(graph, orig, dest, orig_edge, dest_edge, method='dij
 
 # Use Single Source Dijkstra algorithm to compute shortest
 # paths from one hub to multiple houses, with optional cutoff.
-def multicore_single_source_shortest_path(graph, orig, dest, dest_edges, method='dijkstra', weight='travel_time', cutoff=None, cpus=1):
+def multicore_single_source_shortest_path(graph, orig, dest, dest_edges, skip_non_shortest=False, method='dijkstra', weight='travel_time', cutoff=None, cpus=1):
     # Check the format of orig and change to list
     if isinstance(orig, tuple):
         orig = [orig]
@@ -562,12 +576,21 @@ def multicore_single_source_shortest_path(graph, orig, dest, dest_edges, method=
 
     orig_paths = {}
     if cpus == 1:
-        print(f"Solving {len(orig)} single sources using {method} algorithm with cutoff {cutoff} on weight '{weight}' using {cpus} CPUs...")
+        if skip_non_shortest:
+            print(f"Solving {len(orig)} single sources using {method} algorithm with cutoff {cutoff} on weight '{weight}', skipping non-shortest paths using {cpus} CPUs...")
 
-        for orig, orig_edge in zip(orig, orig_edges):
-            paths = _single_source_shortest_path(graph, orig, dest, orig_edge, dest_edges, method=method, weight=weight, cutoff=cutoff)
+            path_weights = [float('inf')] * len(dest) 
+            for orig, orig_edge in zip(orig, orig_edges):
+                paths, path_weights = _single_source_shortest_path(graph, orig, dest, orig_edge, dest_edges, path_weights=path_weights, method=method, weight=weight, cutoff=cutoff)
 
-            orig_paths[orig] = paths
+                orig_paths[orig] = paths
+        else:
+            print(f"Solving {len(orig)} single sources using {method} algorithm with cutoff {cutoff} on weight '{weight}' using {cpus} CPUs...")
+
+            for orig, orig_edge in zip(orig, orig_edges):
+                paths = _single_source_shortest_path(graph, orig, dest, orig_edge, dest_edges, method=method, weight=weight, cutoff=cutoff)
+
+                orig_paths[orig] = paths
     else:
         if cpus is None:
             cpus = mp.cpu_count()

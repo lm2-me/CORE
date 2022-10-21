@@ -50,9 +50,9 @@ class CityNetwork():
     edge_color = 'lightgray'
     node_color = 'white'
     edge_linewidth = 1
-    node_size=3
+    node_size=1.5
     route_color = '#C90808'
-    route_width = 3
+    route_width = 1.2
     origin_color = '#FFE54F'
     destination_color = '#82C5DA'
     marker_color = 'purple'
@@ -69,6 +69,7 @@ class CityNetwork():
         self.building_addr_df = None
         self.url = [None, "https://maps.mail.ru/osm/tools/overpass/api/interpreter", "https://overpass.kumi.systems/api/interpreter", "https://lz4.overpass-api.de/api/interpreter"]
         self.ne = None
+        self.ne_dist = None
         self.interpolation = None
 
     def __repr__(self):
@@ -254,7 +255,10 @@ class CityNetwork():
         with open(path, 'wb') as file:
             pickle.dump(self, file, pickle.HIGHEST_PROTOCOL)
 
-    def nearest_edges(self, x, y, interpolate, cpus=None, _multiply=1):
+    def nearest_edges(self, interpolate, cpus=None, _multiply=1):
+        buildings_yx = list(self.building_addr_df.loc[:, ['y', 'x']].itertuples(index=False, name=None))
+        y, x = list(map(list, zip(*buildings_yx)))
+
         if self.ne is None:
             # If _multiply is given, multiply the number of samples
             x *= _multiply
@@ -264,10 +268,23 @@ class CityNetwork():
                 raise ValueError('Please make sure x and y have the same length.') 
             
             multicore_edge_result = multicore_nearest_edge(self.graph, x, y, interpolate, cpus=cpus)
-            self.ne, self.interpolation = multicore_edge_result[0], multicore_edge_result[1]
+            self.ne_dist, self.ne, self.interpolation = multicore_edge_result[0], multicore_edge_result[1], multicore_edge_result[2]
             return self.ne
         else:
             return self.ne
+    
+    def drop_outliers(self, min_dist):
+        drop_outliers = []
+        for i, dist in enumerate(self.ne_dist):
+            if dist > min_dist:
+                drop_outliers.append(i)
+        
+        self.building_addr_df = self.building_addr_df.drop(drop_outliers)
+
+        self.ne = [edge for i, edge in enumerate(self.ne) if i not in drop_outliers]
+        self.ne_dist = [dist for i, dist in enumerate(self.ne_dist) if i not in drop_outliers]
+
+        print(f'Dropped {len(drop_outliers)} outliers further than {min_dist}m from edges')
 
     def shortest_paths(self, orig, dest, orig_edge, dest_edge, weight='travel_time', method='dijkstra', return_path=False, cpus=None, _multiply=1):
         # Check if all inputs are lists, required for multicore calculation
@@ -385,27 +402,27 @@ class CityNetwork():
         if origins is not None:
             if orig_color_mask == None:
                 for orig in origins:
-                    ax.scatter(orig[1], orig[0], color=self.origin_color, marker='.', s=200, label='orig-point')
+                    ax.scatter(orig[1], orig[0], color=self.origin_color, marker='.', s=30, label='orig-point')
             # Use color mask for origins
             else:
                 if len(origins) != len(orig_color_mask):
                     raise ValueError("Origins and orig_color_mask should have same length.")
 
                 for orig, orig_color in zip(origins, orig_color_mask):
-                    ax.scatter(orig[1], orig[0], color=orig_color, marker='.', s=200, label='orig-point')
+                    ax.scatter(orig[1], orig[0], color=orig_color, marker='.', s=20, label='orig-point')
 
         # Plot the destinations with an x mark
         if destinations is not None:
             if dest_color_mask == None:
                 for dest in destinations:
-                    ax.scatter(dest[1], dest[0], color=self.destination_color, marker='.', s=50, label='orig-point')
+                    ax.scatter(dest[1], dest[0], color=self.destination_color, marker='.', s=5, label='orig-point')
             # Use color mask for destinations
             else:
                 if len(destinations) != len(dest_color_mask):
                     raise ValueError("Destinations and dest_color_mask should have same length.")
 
                 for dest, dest_color in zip(destinations, dest_color_mask):
-                    ax.scatter(dest[1], dest[0], color=dest_color, marker='.', s=25, label='orig-point')
+                    ax.scatter(dest[1], dest[0], color=dest_color, marker='.', s=5, label='orig-point')
 
         # Add annotations to the edges, can be names, travel_times etc.
         if annotations:

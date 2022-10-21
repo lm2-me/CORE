@@ -21,12 +21,11 @@ interpolation function.
 
 # Expects results in same coordinate system as graph.
 # Make sure you first transform coordinates and project graph.
-
 def _single_find_nearest_edge(X, Y, vertices, is_scalar):
-    _, pos = cKDTree(vertices).query(np.array([X, Y]).T, k=1)
+    dist, pos = cKDTree(vertices).query(np.array([X, Y]).T, k=1)
     ne = vertices.index[pos]
 
-    return ne
+    return dist, ne
 
 def _interpolate_graph(G, X, Y, interpolate=10):
     is_scalar = False
@@ -111,6 +110,7 @@ def multicore_nearest_edge(graph, X, Y, interpolate, cpus=1):
         # if single-threading, calculate each shortest path one at a time
         # Return route_weight, route, partial_edge_1 and partial_edge_2
         result = [_single_find_nearest_edge(x, y, vertices, is_scalar) for x, y in zip(X, Y)]
+        dist, ne = list(map(list, zip(*result)))
     else:
         print("USER-WARNING: Make sure you put the multicore_nearest_edge function in a 'if __name__ == '__main__' statement!")
         # If multi-threading, calculate shortest paths in parallel           
@@ -122,7 +122,10 @@ def multicore_nearest_edge(graph, X, Y, interpolate, cpus=1):
         result = sma.get()
         pool.close()
         pool.join()
+
+        dist, ne = list(map(list, zip(*result)))
+
     end = time.time()
 
     print(f'Found {len(X)} edges in {round(end-start, 2)}s with {cpus} CPUs...')
-    return result, interpolation_result
+    return dist, ne, interpolation_result
