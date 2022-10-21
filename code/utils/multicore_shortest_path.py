@@ -18,9 +18,7 @@ from functools import partial
 
 from pyproj import Transformer
 
-import math
 import tqdm
-import time
 
 '''
     The core of this code is written by Nathan Rooy in the
@@ -37,13 +35,34 @@ import time
     function and optimized.
     - The code of Taxicab contains multiple bugs related to exceptional
     cases for short routes. This package solves that issue.
+    - Adds support for multicore single source Dijkstra calculations
 '''
 
-# Transform coordinates from 'sphere'(globe) to 'surface (map)
-# Expects coordinates in (lat, lon) e.g. (51.99274, 4.35108)
 def transform_coordinates(coordinate: tuple or list, from_crs="epsg:4326", to_crs="epsg:3857"):
-    # # WGS 84 -- WGS84 World Geodetic System 1984, used in GPS
-    # # More info at https://gist.github.com/keum/7441007
+    """ Transform coordinates from 'sphere'(globe) to 'surface'
+    (map). Expects the coordinates in (latitude, longitude) e.g.
+    (51.99274, 4.35108) or (y, x).
+
+    Developed by Job de Vogel
+
+    WGS 84 -- WGS84 World Geodetic System 1984, used in GPS
+    More info at https://gist.github.com/keum/7441007
+
+    Parameters
+    ----------
+    coordinate : tuple or list of tuples
+        Coordinate in (latitude, longitude)
+
+    from_crs : string
+        Transform coordinates from crs
+    
+    to_crs : 
+        Transform coordinates to crs
+
+    Returns
+    -------
+    Coordinates in new geodesic projection.
+    """
     
     # From epsg:4326 to epsg:3857
     transformer = Transformer.from_crs(from_crs, to_crs)
@@ -72,9 +91,38 @@ def transform_coordinates(coordinate: tuple or list, from_crs="epsg:4326", to_cr
 
 # Calculate the total weight of the path, including partial edges
 def _compute_route_weight(graph, route, weight, ls_orig, ls_dest, orig_edge, dest_edge):
-    '''
-    Compute the total weight of route and partial edges 
-    '''
+    """ Compute the total weight of route and partial edges.
+    
+    Developed by Nathan Rooy.
+
+    Parameters
+    ----------
+    graph : OSMnx graph
+
+    route : list of integers or empty list
+        The route of node idxs of a route.
+    
+    weight : float
+        The weight of the route.
+    
+    ls_orig: LineString or empty list
+        LineString at the origin of the route.
+
+    ls_dest: LineString or empty list
+        LineString at the destination of the route.
+    
+    orig_edge: tuple
+        Tuple indicating the nearest edge of the network
+        to the origin.
+
+    dest_edge: tuple
+        Tuple indicating the nearest edge of the network
+        to the destination.
+
+    Returns
+    -------
+    The total weight of the route in the network.
+    """
     route_weight = get_route_edge_attributes(graph, route, weight)
     
     orig_edge_length = graph.edges[orig_edge]['length']
@@ -125,8 +173,9 @@ def _compute_route_weight(graph, route, weight, ls_orig, ls_dest, orig_edge, des
     return total_route_weight
 
 def _get_edge_geometry(G, edge):
-    '''
-    Retrieve the points that make up a given edge.
+    """ Retrieve the points that make up a given edge.
+
+    Developed by Nathan Rooy
     
     Parameters
     ----------
@@ -146,7 +195,7 @@ def _get_edge_geometry(G, edge):
     OSM graph for the edge in question, it is assumed then that 
     the current edge is just a straight line. This results in an
     automatic assignment of edge end points.
-    '''
+    """
     
     if G.edges.get(edge, 0):
         if G.edges[edge].get('geometry', 0):
@@ -160,9 +209,27 @@ def _get_edge_geometry(G, edge):
         (G.nodes[edge[0]]['x'], G.nodes[edge[0]]['y']),
         (G.nodes[edge[1]]['x'], G.nodes[edge[1]]['y'])])
 
-# Find the closest hub in as set of shortest paths
-# Format input {hub_1_idx: [[weight, path, ls_origin, ls_dest], ...], hub_2_idx: [[...], ...]}
 def closest_hub(paths_dict):
+    """ Compute the closest hub to a destination
+
+    Developed by Job de Vogel
+    
+    Parameters
+    ----------
+    paths_dict : dict
+        Result from the multicore_single_source_shortest_path
+        computation.
+    
+    Returns
+    -------
+    closest_hub_idx : list
+        List of indices indicating the closest hub to each destination.
+    
+    assigned_demand_points : list
+        List indicating if a destination is connected to a hub or not.
+    """
+
+
     # List concatination to extract the weights for all paths for each hub
     path_weights = np.array([[data[0] for data in hub] for hub in paths_dict.values()])
     
@@ -187,12 +254,62 @@ def closest_hub(paths_dict):
 
     return closest_hub_idx, assigned_demand_points
 
-# Single_shortest path (based on taxicab, but using a* algorithm)
-# Several bugs resolved by Job de Vogel
 def _single_shortest_path(G, orig_yx, dest_yx, orig_edge, dest_edge,
     method='dijkstra', 
     weight='length',
     return_path=False):
+
+    """ Compute a single shortest path between an origin and
+    as destination, used for the multicore_shortest_path function.
+
+    Developed by Nathan Rooy, adapted by Job de Vogel
+    
+    Parameters
+    ----------
+    G : OSMnx graph
+        OSMnx graph of the CityNetwork
+    
+    orig_yx : tuple or list of tuples
+        Tuple with the yx coordinate of the origin
+
+    dest_yx : tuple or list of tuples
+        Tuple with the yx coordinate of the destination
+
+    orig_edge : tuple or list of tuples
+        Tuple indicating the nearest edge to the origin
+
+    dest_yx : tuple or list of tuples
+        Tuple indicating the nearest edge to the destination
+    
+    method : string
+        Method to use for shortest path, can be 'dijkstra',
+        'bellman-ford' or 'astar'. For dijkstra, the bidirectional
+        version of the algorithm is used.
+    
+    weight: string
+        The weight to use to compute the shortest path.
+
+    return_path: bool
+        Indicate if the algorithm should return a list of nodes
+        with the shortest path or not. If False, will return an
+        None value.
+
+    
+    Returns : list
+    -------
+    route_weight : float
+        The total weight of the shortest path 
+    
+    nx_route : list of integers
+        The nodes in the graph used for the shortest path. If return_path
+        is False returns a None value.
+    
+    orig_partial_edge : LineString
+        The LineString at the origin of the path.
+    
+    dest_partial_edge
+        The Linestring at the destination of the path.
+    """
 
     # Check if on samen line, if so, use simplified calculation
     if orig_edge == dest_edge:
@@ -331,6 +448,63 @@ def _single_shortest_path(G, orig_yx, dest_yx, orig_edge, dest_edge,
     return route_weight, nx_route, orig_partial_edge, dest_partial_edge
 
 def _single_source_shortest_path(graph, orig, dest, orig_edge, dest_edges, path_weights=None, method='dijkstra', weight='travel_time', cutoff=None):
+    """ Compute all shortest paths from a certain origin, considering
+    a cutoff value.
+
+    Developed by Job de Vogel, used Taxicab by Nathan Rooy
+    
+    Parameters
+    ----------
+    graph : OSMnx graph
+        OSMnx graph of the CityNetwork
+    
+    orig : tuple
+        Tuple with the yx coordinate of the origin
+
+    dest : list of tuples
+        Tuple with the yx coordinate of the destination
+
+    orig_edge : tuple or list of tuples
+        Tuple indicating the nearest edge to the origin
+
+    dest_edge : tuple or list of tuples
+        Tuple indicating the nearest edge to the destinations
+
+    path_weights : list of floats or None
+        If path_weights is given, considering single core computation
+        the algorithm will skip computations of shortest paths for
+        destinations that already have a closer hub. This can drastically
+        reduce the computation time, but comes with a cost of accuracy.
+    
+    method : string
+        Method to use for shortest path, can be 'dijkstra',
+        'bellman-ford'.
+    
+    weight: string
+        The weight to use to compute the shortest path.
+
+    cutoff : float
+        The weight value at which the algorithm should stop searching
+        for shortest paths to destinations.
+
+    Returns : dict
+        A dictionary with the hub yx coordinate as key and a list of path data
+        as value.
+    -------
+    route_weight : float
+        The total weight of the shortest path 
+    
+    nx_route : list of integers
+        The nodes in the graph used for the shortest path. If return_path
+        is False returns a None value.
+    
+    orig_partial_edge : LineString
+        The LineString at the origin of the path.
+    
+    dest_partial_edge
+        The Linestring at the destination of the path.
+    """
+
     if method == 'dijkstra':
         nx_routes = nx.single_source_dijkstra(graph, orig_edge[0], weight=weight, cutoff=cutoff)
     elif method == 'bellman-ford':
@@ -499,10 +673,64 @@ def _single_source_shortest_path(graph, orig, dest, orig_edge, dest_edges, path_
     else:
         return result
 
-# Convert to multicore process based on osmnx method
-# This code is based on the shortest_path method
-# from OSMnx
 def multicore_shortest_path(graph, orig, dest, orig_edge, dest_edge, method='dijkstra', weight='travel_time', return_path=False, cpus=1):
+    """ Compute all shortest paths from a list of origins, to
+    a list of destinations using multiple cores.
+
+    Developed by Job de Vogel, used Taxicab by Nathan Rooy
+    and OSMnx by Gboeing.
+    
+    Parameters
+    ----------
+    graph : OSMnx graph
+        OSMnx graph of the CityNetwork
+    
+    orig : tuple or list of tuples
+        Tuple with the yx coordinate of the origin
+
+    dest : tuple or list of tuples
+        Tuple with the yx coordinate of the destination
+
+    orig_edge : tuple or list of tuples
+        Tuple indicating the nearest edge to the origin
+
+    dest_edge : tuple or list of tuples
+        Tuple indicating the nearest edge to the destinations
+    
+    method : string
+        Method to use for shortest path, can be 'dijkstra',
+        'bellman-ford'.
+    
+    weight: string
+        The weight to use to compute the shortest path.
+
+    return_path: bool
+        Indicate if the algorithm should return a list of nodes
+        with the shortest path or not. If False, will return an
+        None value.
+
+    cpus: int
+        The number of cpu cores used. If None, the algorithm
+        uses the max number of cores available on device.
+
+
+    Returns : list of lists
+        Lists of shortest paths between origins and destinations.
+    -------
+    route_weight : float
+        The total weight of the shortest path 
+    
+    nx_route : list of integers
+        The nodes in the graph used for the shortest path. If return_path
+        is False returns a None value.
+    
+    orig_partial_edge : LineString
+        The LineString at the origin of the path.
+    
+    dest_partial_edge
+        The Linestring at the destination of the path.
+    """
+
     if isinstance(orig, tuple) or isinstance(dest, tuple):
         raise TypeError('Orig and dest should be lists, not tuples.')
     
@@ -544,9 +772,67 @@ def multicore_shortest_path(graph, orig, dest, orig_edge, dest_edge, method='dij
     else:  # pragma: no cover
         raise ValueError("Please check shortest path inputs.")
 
-# Use Single Source Dijkstra algorithm to compute shortest
-# paths from one hub to multiple houses, with optional cutoff.
 def multicore_single_source_shortest_path(graph, orig, dest, dest_edges, skip_non_shortest=False, method='dijkstra', weight='travel_time', cutoff=None, cpus=1):
+    """ Compute all shortest paths from multiple origins, considering
+    a cutoff value and using multiple cores.
+
+    Developed by Job de Vogel, used Taxicab by Nathan Rooy
+    and OSMnx by Gboeing.
+    
+    Parameters
+    ----------
+    graph : OSMnx graph
+        OSMnx graph of the CityNetwork
+    
+    orig : tuple
+        Tuple with the yx coordinate of the origin
+
+    dest : list of tuples
+        Tuple with the yx coordinate of the destination
+
+    dest_edges : list of tuples
+        Tuple indicating the nearest edge to the destinations
+
+    skip_none_shortest : bool
+        Bool indicating if single core algorithm may skip
+        shortest path computations skipping destinations
+        that already have a shorter path. Can dramatically
+        decrease computation time but also decrease accuracy.
+
+    method : string
+        Method to use for shortest path, can be 'dijkstra',
+        'bellman-ford'.
+    
+    weight: string
+        The weight to use to compute the shortest path.
+
+    cutoff : float
+        The weight value at which the algorithm should stop searching
+        for shortest paths to destinations.
+
+    cpus: int
+        The number of cpu cores used. If None, the algorithm
+        uses the max number of cores available on device.
+
+
+    Returns : dict
+        A dictionary with the hub yx coordinate as key and a list of path data
+        as value.
+    -------
+    route_weight : float
+        The total weight of the shortest path 
+    
+    nx_route : list of integers
+        The nodes in the graph used for the shortest path. If return_path
+        is False returns a None value.
+    
+    orig_partial_edge : LineString
+        The LineString at the origin of the path.
+    
+    dest_partial_edge
+        The Linestring at the destination of the path.
+    """
+
     # Check the format of orig and change to list
     if isinstance(orig, tuple):
         orig = [orig]
@@ -623,8 +909,24 @@ def multicore_single_source_shortest_path(graph, orig, dest, dest_edges, skip_no
         
     return orig_paths
 
-# Generate a dataframe from the shortest paths result
 def paths_to_dataframe(paths, hubs=None):
+    """ Convert shortest path results to a Pandas Dataframe.
+
+    Developed by Job de Vogel
+    
+    Parameters
+    ----------
+    paths : dict
+        Paths result from single source shortest path computation
+    hubs : list of tuples
+        Optionally, adds x and y values of assigned hub to Dataframe
+    
+    Returns
+    -------
+    Dataframe :
+        Dataframe with data of shortest path computation.
+    """
+
     df = pd.DataFrame()
 
     closest_hubs, _ = closest_hub(paths)
