@@ -244,6 +244,9 @@ class CityNetwork():
             raise ValueError('Graph does not exist, please generate graph with load_osm_graph()')
         return self.graph_edges_df['osmid'].values
 
+    def get_xy_destinations(self):
+        return list(self.building_addr_df.loc[:, ['y', 'x']].itertuples(index=False, name=None))
+
     """ Storing the graph as a pickle file avoids having to recalculate
     attributes such as speed, length etc. and is way faster
     """

@@ -21,9 +21,9 @@ def main():
 
 
     # CALCULATE NEAREST EDGES IF NOT AVAILABLE IN City.ne    
-    City.ne = None
-    dest_edges = City.nearest_edges(5, cpus=12)
-    City.save_graph(name, data_folder)
+    # City.ne = None
+    # dest_edges = City.nearest_edges(5, cpus=12)
+    # City.save_graph(name, data_folder)
 
 
     # REMOVE OUTLIERS FROM A CERTAIN DISTANCE
@@ -31,14 +31,14 @@ def main():
     dest_edges = City.ne
 
     # Extract the new destinations skipping the outliers
-    destinations = list(City.building_addr_df.loc[:, ['y', 'x']].itertuples(index=False, name=None))
+    destinations = City.get_xy_destinations()
 
 
     # MULTICORE V2 STARTS HERE:
     # Compute shortest paths by hub for n clustering iterations
     # Hubs are randomly placed each iteration, just as example
     cluster_iterations = []
-    num_hubs = 50
+    num_hubs = 48
     num_iterations = 1
 
     for i in range(num_iterations):
@@ -57,7 +57,12 @@ def main():
 
         # Calculate shortest paths by hub
         # Check the code for description of inputs.
-        paths = multicore_single_source_shortest_path(City.graph, hubs, destinations, dest_edges, skip_non_shortest=False, weight='travel_time', cutoff=600, cpus=12)
+        paths = multicore_single_source_shortest_path(City.graph, hubs, destinations, dest_edges, 
+            skip_non_shortest=False, 
+            weight='travel_time', 
+            cutoff=None, 
+            cpus=12
+            )
 
         # Show the results
         paths_df = paths_to_dataframe(paths, hubs=hubs)
@@ -85,7 +90,9 @@ def main():
     # to only use City.plot(**kwargs) once for the final hub setup.
     start = time.time()
     
-    colors = ['red', 'orange', 'yellow', 'pink', 'purple', 'peru']  
+    colors = ['red', 'orange', 'yellow', 'pink', 'purple', 'peru']
+    
+    # To do: remove closest hub function from the multiplot_save inputs
     multiplot_save(cluster_iterations, City, destinations, closest_hub, colors, session_name, dpi=300, cpus=None)
     
     end = time.time()
