@@ -10,7 +10,6 @@ import time
 
 @timer_decorator
 def main():
-
     # LOAD THE NETWORK (SIMILAR AS BEFORE)
     name = 'Delft_center_walk'
     data_folder = 'data/'
@@ -25,11 +24,14 @@ def main():
     # dest_edges = City.nearest_edges(x, y, 5, cpus=12)
     # City.save_graph(name, data_folder)
 
+    # REMOVE OUTLIERS FROM A CERTAIN DISTANCE
     City.drop_outliers(30)
     dest_edges = City.ne
 
+    # Extract the new destinations skipping the outliers
     destinations = list(City.building_addr_df.loc[:, ['y', 'x']].itertuples(index=False, name=None))
     """--------------------------------------------------"""
+
 
 
     # MULTICORE V2 STARTS HERE:
@@ -41,18 +43,23 @@ def main():
     num_iterations = 1
 
     for i in range(num_iterations):
-        start=time.time()
         # Random positions of hubs
         random.seed(2)
+
+        # Delft Center
         hubs = [(random.randint(6801030, 6803490), random.randint(484261, 486397)) for _ in range(num_hubs)]
+        
+        # Full Delft
         # hubs = [(random.randint(6792760, 6805860), random.randint(478510, 490000)) for _ in range(num_hubs)]
 
         print(f"Cluster iteration {i} started...")
+        start=time.time()
 
         # Calculate shortest paths by hub
-        # Requires the following inputs: graph, orig(hubs), dest(houses), dest_edges(pre-calculated), method='dijkstra', weight='travel_time', cutoff=None, cpus=None
+        # Check the code for description of inputs.
         paths = multicore_single_source_shortest_path(City.graph, hubs, destinations, dest_edges, skip_non_shortest=False, weight='travel_time', cutoff=600, cpus=12)
 
+        # Show the results
         paths_df = paths_to_dataframe(paths, hubs=hubs)
         print(paths_df)
 
@@ -73,32 +80,13 @@ def main():
     # - EASY: The CityNetwork class using CityNetwork.plot(kwargs)
     # - MULTICORE: The multiplot package, to save many images
 
-    colors = ['red', 'orange', 'yellow', 'pink', 'purple', 'peru']
-
-
-
-    # PLOTTING ONE CLUSTERING RESULT, SINGLE CORE
-    # closest_hubs, assigned_houses = closest_hub(paths)
-
-    # Format the paths and destinations
-    # The format_paths_for_plot functions returns:
-    # - Cleaned list of paths that should be plotted based on closest hubs
-    # - The destinations that should be plotted
-    # - A color mask that can be used for the color_mask of the route and destinations
-    # - A color mask for the origins
-    # Colors are repeated if number of hubs > number of colors.
-
-    # cleaned_paths, destinations, color_mask, orig_color_mask = format_paths_for_plot(paths, hubs, destinations, closest_hubs, assigned_houses, colors)
-    # fig, ax = City.plot(routes=cleaned_paths, origins=hubs, destinations=destinations, route_color_mask=color_mask, orig_color_mask=orig_color_mask, dest_color_mask=color_mask, save=True, show=True)
-    
-
-
     # SAVING MULTIPLE CLUSTERING ITERATION PLOTS, MULTICORE
     # Show is always set to False in this case!
 
     # WARNING: THIS PROCESS MEMORY BOUND, USES UP TO 40 GB COMMITED MEMORY FOR FULL DELFT NETWORK dpi=300
     start = time.time()
     
+    colors = ['red', 'orange', 'yellow', 'pink', 'purple', 'peru']  
     multiplot_save(cluster_iterations, City, destinations, closest_hub, colors, session_name, dpi=300, cpus=None)
     
     end = time.time()
