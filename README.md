@@ -11,28 +11,29 @@ Installing may take several minutes.
 
 
 The following code was developed for this project by the team:
-    - run (Job de Vogel)
+    
+- run (Job de Vogel)
 
 
-    - unpack.clustering (Lisa-Marie Mueller)
-    - unpack.network_delft (Job de Vogel)
-    - unpack.example_mutlicore_v1 (Job de Vogel)
-    - unpack.example_multicore_v2 (Job de Vogel)
+- unpack.clustering (Lisa-Marie Mueller)
+- unpack.network_delft (Job de Vogel)
+- unpack.example_mutlicore_v1 (Job de Vogel)
+- unpack.example_multicore_v2 (Job de Vogel)
 
 
-    - unpack.hops.siteprocessing (Lisa-Marie Mueller)
-    - unpack.hops.helpers (Lisa-Marie Mueller)
-    - unpack.hops.WFC (Sebastian Stripp)
+- unpack.hops.siteprocessing (Lisa-Marie Mueller)
+- unpack.hops.helpers (Lisa-Marie Mueller)
+- unpack.hops.WFC (Sebastian Stripp)
 
 
-    - unpack.utils.multicore_nearest_edges (Job de Vogel)
-    - unpack.utils.multicore_shortest_path (Job de Vogel)
-    - unpack.utils.multiplot (Job de Vogel & Lisa-Marie Mueller)
-    - unpack.utils.network_helpers (Lisa-Marie Mueller & Job de Vogel)
-    - unpack.utils.osm_data_request (Jirri van den Bos)
+- unpack.utils.multicore_nearest_edges (Job de Vogel)
+- unpack.utils.multicore_shortest_path (Job de Vogel)
+- unpack.utils.multiplot (Job de Vogel & Lisa-Marie Mueller)
+- unpack.utils.network_helpers (Lisa-Marie Mueller & Job de Vogel)
+- unpack.utils.osm_data_request (Jirri van den Bos)
 
 
-    - unpack.utils.utils.timer_decorator (Job de Vogel)
+- unpack.utils.utils.timer_decorator (Job de Vogel)
 
 
-    - unpack.webapp (Lisa-Marie Mueller)
+- unpack.webapp (Lisa-Marie Mueller)
