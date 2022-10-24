@@ -6,7 +6,8 @@ AR3B012 CORE
 
 TU Delft, Q1 2022
 
-Please use the conda environment provided: `conda_env.yml`
+Please install this package using `conda env create -f conda_env.yml` which uses the `conda_env.yml`.
+Installing may take several minutes.
 
 
 The following code was developed for this project by the team:
@@ -22,7 +23,7 @@ The following code was developed for this project by the team:
 - unpack.hops.WFC (Sebastian Stripp)
 
 - unpack.utils.multicore_nearest_edges (Job de Vogel)
-- unpack.utils.nearest_edges (Job de Vogel)
+- unpack.utils.multicore_shortest_path (Job de Vogel)
 - unpack.utils.multiplot (Job de Vogel & Lisa-Marie Mueller)
 - unpack.utils.network_helpers (Lisa-Marie Mueller & Job de Vogel)
 - unpack.utils.osm_data_request (Jirri van den Bos)
