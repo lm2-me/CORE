@@ -9,25 +9,90 @@ from scipy.spatial import cKDTree
 import time
 import tqdm
 
-'''
-This script was originally developed by gboing in OSMnx. It
+"""
+This script was originally developed by gboeing in OSMnx. It
 has been upgraded by Job de Vogel to have the following
 functionalities:
 
-- nearest_edges is now splitted in finding nearest edge and
+>>> nearest_edges is now splitted in finding nearest edge and
 interpolation function.
-- function now runs using multiple cpus.
-'''
+>>> function now runs using multiple cpus.
+"""
 
 # Expects results in same coordinate system as graph.
 # Make sure you first transform coordinates and project graph.
-def _single_find_nearest_edge(X, Y, vertices, is_scalar):
+def _single_find_nearest_edge(X, Y, vertices):
+    """Interpolate a graph
+    
+    Developed by gboeing.
+
+    Parameters
+    ----------
+    X : float or list
+        points' x (longitude) coordinates, in same CRS/units as graph and
+        containing no nulls
+        
+    Y : float or list
+        points' y (latitude) coordinates, in same CRS/units as graph and
+        containing no nulls
+        
+    interpolate : float
+        spacing distance between interpolated points, in same units as graph.
+        smaller values generate more points.
+
+    Returns
+    -------
+    dist : float or list of floats
+        Distances to nearest edge
+        
+    ne : tuple or list of tuples
+        Nearest edge to point
+    """
+    
     dist, pos = cKDTree(vertices).query(np.array([X, Y]).T, k=1)
     ne = vertices.index[pos]
 
     return dist, ne
 
 def _interpolate_graph(G, X, Y, interpolate=10):
+    """Interpolate a graph
+    
+    Developed by gboeing.
+
+    Parameters
+    ----------
+    G : networkx.MultiDiGraph
+        graph in which to find nearest edges
+        
+    X : float or list
+        points' x (longitude) coordinates, in same CRS/units as graph and
+        containing no nulls
+        
+    Y : float or list
+        points' y (latitude) coordinates, in same CRS/units as graph and
+        containing no nulls
+        
+    interpolate : float
+        spacing distance between interpolated points, in same units as graph.
+        smaller values generate more points.
+
+    Returns
+    -------
+    X : float or list
+        points' x (longitude) coordinates, in same CRS/units as graph and
+        containing no nulls
+        
+    Y : float or list
+        points' y (latitude) coordinates, in same CRS/units as graph and
+        containing no nulls
+    
+    vertices : list of tuples
+        Interpolation coordinates
+    
+    is_scalar : bool
+        Indicates if input is scalar 
+    """
+    
     is_scalar = False
     if not (hasattr(X, "__iter__") and hasattr(Y, "__iter__")):
         # make coordinates arrays if user passed non-iterable values
@@ -62,17 +127,22 @@ def multicore_nearest_edge(graph, X, Y, interpolate, cpus=1):
     point to the possible matches. For accuracy, use a projected graph and
     points. This method is precise and also fastest if searching for few
     points relative to the graph's size.
+    
+    Developed by Job de Vogel (parts by gboeing)
 
     Parameters
     ----------
     G : networkx.MultiDiGraph
         graph in which to find nearest edges
+        
     X : float or list
         points' x (longitude) coordinates, in same CRS/units as graph and
         containing no nulls
+        
     Y : float or list
         points' y (latitude) coordinates, in same CRS/units as graph and
         containing no nulls
+        
     interpolate : float
         spacing distance between interpolated points, in same units as graph.
         smaller values generate more points.

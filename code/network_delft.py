@@ -4,32 +4,30 @@ and calculates shortest paths
 
 By: 
 Job de Vogel, TU Delft (framework, street data and shortest paths)
-Jirri van den Bos, TU Delft (load building addresses)
+Jirri van den Bos, TU Delft (load building addresses and osm graph)
 
 Classes:
     - CityNetwork
 
     Methods:
-        - load_osm_graph: load osm data to networkx graph online or local
-        - add_rel_attributes: calculate speed, length and travel_time
-        - project_graph: project graph on different coordinate system
-        - convert_graph_edges_to_df: build dataframe for all edges
-        - convert_graph_nodes_to_df: build dataframe for all nodes
-        - get_edge_attribute_types: get all attribute types from edge dataframe
-        - get_node_attribute_types: get all attribute types from node dataframe
-        - get_node_osmids: get all osm id's from nodes
-        - get_edge_osmids: get all osm id's from edges
-        - save_graph: save graph to pickle file
-        - load_graph: load graph from pickle file
-        - nearest_edges: calculate nearest edges to coordinate
-        - shortest_paths: calculate shortest paths between nodes or coordinates
-        - plot: plot city graph without routes
-
-Decorators:
-    - timer_decorator: time a function
-
-Other functions:
-    - main: calculate the shortest path
+        >>> load_osm_graph: load osm data to networkx graph online or local
+        >>> load_building_addr: load building and adress data from cbs
+        >>> add_rel_attributes: calculate speed, length and travel_time
+        >>> add_street_experience: add experience scores based on street name
+        >>> add_coord_experience: add experience scores based on coordinates
+        >>> project_graph: project graph on different coordinate system
+        >>> convert_graph_edges_to_df: build dataframe for all edges
+        >>> convert_graph_nodes_to_df: build dataframe for all nodes
+        >>> get_edge_attribute_types: get all attribute types from edge dataframe
+        >>> get_node_attribute_types: get all attribute types from node dataframe
+        >>> get_node_osmids: get all osm id's from nodes
+        >>> get_edge_osmids: get all osm id's from edges
+        >>> save_graph: save graph to pickle file
+        >>> load_graph: load graph from pickle file
+        >>> drop_outliers: drop outlier buildings in the graph
+        >>> nearest_edges: calculate nearest edges to coordinate
+        >>> shortest_paths: calculate shortest paths between nodes or coordinates
+        >>> plot: plot city graph without routes
 """
 
 import osmnx as ox
@@ -41,9 +39,16 @@ import overpy
 
 from utils.multicore_shortest_path import multicore_shortest_path
 from utils.multicore_nearest_edges import multicore_nearest_edge
-from utils.osm_data_request import get_addr_query, get_building_query, get_osm_addr, get_osm_building, compare_building_addr, load_csv, addxy_building_addr, get_CBS_query, get_CBS_data, read_CBS, compare_building_cbs
+from utils.osm_data_request import *
 
 class CityNetwork():
+    """A CityNetwork class that contains osm and cbs information about
+    a city. It can be used in combination with clustering an shortest
+    path computations
+    
+    Developed by Job de Vogel and Jirri van den Bos
+    """
+    
     # Plot settings
     figsize=(8, 8) 
     bgcolor = '#181717'
@@ -75,9 +80,32 @@ class CityNetwork():
     def __repr__(self):
         return "<CityNetwork object of {}>".format(self.name)
 
-    # Load an osm graph from online or local saved file
-    # Query indicates geocodable location such as 'Delft'
     def load_osm_graph(self, filepath: str, query=False):
+        """Load an online or local osm graph
+
+        If osm graph already locally available, graph will not  be retrieved
+        online.
+        
+        Developed by Jirri van den Bos
+
+        Parameters
+        ----------
+        filepath : string
+            Path to where osm graph should be stored.
+
+        query : string or False bool
+            Indicate if graph should be loaded based on query.
+            
+        
+        Related class object parameters
+        ---------
+        self.transport_type : string
+            The type of transport (walk, bike, epv, all).
+        
+        self.graph : networkx graph
+            Multigraph of the streets and junctions.
+        """
+        
         # If Electric personal vehicle: use bike data
         transport_type = self.transport_type
         if transport_type == 'epv':
@@ -102,7 +130,36 @@ class CityNetwork():
         self.graph = graph
         print("Finished loading")
 
+
     def load_building_addr(self, building_addr_path: str, building_path: str, adress_path: str, cbs_path: str):
+        """Load buildings and adress data, combine into one pandas Dataframe
+
+        If osm server is not able to send results, please try again in 30 seconds.
+        
+        Developed by Jirri van den Bos
+
+        Parameters
+        ----------
+        building_addr_path : string
+            Path where building adresses are saved
+
+        building : string
+            Path where buildings are saved
+
+        adress_add_path : string
+            Path where adresses are saved
+            
+        cbs_path : string
+            Path where cbs data is saved
+            
+        
+        Related class object parameters
+        ---------
+        self.building_addr_df : Pandas DataFrame
+            Pandas DataFrame with data of all buildings, their adresses,
+            locations and residents.
+        """
+        
         print("Loading buildings...")
         cbs_properties = ['geom','gemiddeldeHuishoudsgrootte']#,'buurtcode','buurtnaam','gemeentenaam']
 
@@ -136,6 +193,7 @@ class CityNetwork():
                 if error == len(self.url):
                     print("The request is currently unable to gather Overpass data, please retry manually in 30 seconds")
                     exit()
+            
             # Load the building and adress data from csv
             addr_frame =  load_csv(adress_path)
             building_frame = load_csv(building_path)
@@ -150,7 +208,7 @@ class CityNetwork():
         CBS_query = get_CBS_query(([''], self.coordinates), cbs_properties, buurt_index_skip=[0])
         if not (os.path.isfile(cbs_path)):
             get_CBS_data(CBS_query, cbs_path)
-        print(cbs_path)
+
         CBS_data = read_CBS(cbs_path)
 
         building_addr_df= compare_building_cbs(building_addr_df, CBS_data, cbs_properties)
@@ -158,9 +216,33 @@ class CityNetwork():
         # Save to CityNetwork object
         self.building_addr_df = building_addr_df
 
-    # Add speed, length and travel time to graph
-    def add_rel_attributes(self, overwrite_walk=None, overwrite_bike=None, overwrite_epv=False):
 
+    def add_rel_attributes(self, overwrite_walk=None, overwrite_bike=None, overwrite_epv=False):
+        """Add relevant attributes such as speed and travel_time to the graph
+        
+        Developed by Job de Vogel
+
+        Parameters
+        ----------
+        overwrite_walk : None or int
+            Speed which should be used for walking (kph)
+        
+        overwrite_bike : None or int
+            Speed which should be used for bikes (kph)
+        
+        overwrite_epv : None or int
+            Speed which should be used for electric powered vehicles (kph)
+
+            
+        Related class object parameters
+        ---------
+        self.transport_type : string
+            The type of transport (walk, bike, epv, all).
+        
+        self.graph : networkx graph
+            Multigraph of the streets and junctions.
+        """
+        
         graph = ox.distance.add_edge_lengths(self.graph)
         graph = ox.speed.add_edge_speeds(graph)
 
@@ -175,7 +257,27 @@ class CityNetwork():
 
         self.graph = graph
 
+
     def add_street_experience(self, names=[], factors=[]):
+        """Add an experience weight to the graph, based on street names
+        
+        Developed by Job de Vogel
+
+        Parameters
+        ----------
+        names : list of strings
+            Names of the streets that should get experience values
+        
+        factors : list of floats
+            Corresponding importance factors for the street experience values
+
+            
+        Related class object parameters
+        ---------        
+        self.graph : networkx graph
+            Multigraph of the streets and junctions.
+        """
+        
         nx.set_edge_attributes(self.graph, 0, 'experience')
 
         for osmid in self.graph.edges:
@@ -186,8 +288,28 @@ class CityNetwork():
                 if 'name' in self.graph.edges[osmid]:
                     if self.graph.edges[osmid]['name'] not in names:
                         self.graph.edges[osmid]['experience'] = self.graph.edges[osmid]['experience'] * factor
-    
+
+
     def add_coord_experience(self, street_uvk=[], factors=[]):
+        """Add an experience weight to the graph, based on coordinates
+        
+        Developed by Job de Vogel
+
+        Parameters
+        ----------
+        street_uvk : list of tuples
+            Coordinates that should get experience values
+        
+        factors : list of floats
+            Corresponding importance factors for the coordinate experience values
+
+            
+        Related class object parameters
+        ---------        
+        self.graph : networkx graph
+            Multigraph of the streets and junctions.
+        """
+        
         nx.set_edge_attributes(self.graph, 0, 'experience')
         
         for street, factor in zip(street_uvk, factors):
@@ -200,57 +322,158 @@ class CityNetwork():
                 else:
                     self.graph.edges[edge]['experience'] = self.graph.edges[edge]['length'] * factor
 
+
     def project_graph(self):
+        """Project graph from 'sphere'(globe) to 'surface'
+        
+        Developed by Job de Vogel
+
+        WGS 84 -- WGS84 World Geodetic System 1984, used in GPS
+        More info at https://gist.github.com/keum/7441007
+
+        Parameters
+        ----------
+        names : list of strings
+            Names of the streets that should get experience values
+        
+        factors : list of floats
+            Corresponding importance factors for the street experience values
+
+            
+        Related class object parameters
+        ---------        
+        self.graph : networkx graph
+            Multigraph of the streets and junctions.
+        """
         self.graph = ox.project_graph(self.graph, to_crs="EPSG:3857")
 
-    # Create a dataframe for the edges    
+   
     def convert_graph_edges_to_df(self):
+        """Convert the edges of a graph to a Pandas Dataframe
+        
+        Developed by Job de Vogel
+            
+        Related class object parameters
+        ---------      
+        self.graph_edges_df : Pandas DataFrame
+            DataFrame with edges of the graphs stored
+        """
         if self.graph is not None:
             self.graph_edges_df =  ox.graph_to_gdfs(self.graph, nodes=False)
         else:
             raise ValueError('CityNetwork object does not contain graph.')
-    
-    # Create a dataframe for the nodes
+
+  
+
     def convert_graph_nodes_to_df(self):
+        """Convert the nodes of a graph to a Pandas Dataframe
+        
+        Developed by Job de Vogel
+            
+        Related class object parameters
+        ---------      
+        self.graph_nodes_df : Pandas DataFrame
+            DataFrame with nodes of the graphs stored
+        """
         if self.graph is not None:
             self.graph_nodes_df = ox.graph_to_gdfs(self.graph, edges=False)
         else:
             raise ValueError('CityNetwork object does not contain graph.')
-    
+
+
     # Get all node or edge attribute types included in data
     def get_edge_attribute_types(self):
+        """Get the attributes from the edges in the graph
+        
+        Developed by Job de Vogel
+            
+        Related class object parameters
+        ---------      
+        self.graph_nodes_df : Pandas DataFrame
+            DataFrame with nodes of the graphs stored
+        """
         if self.graph_edges_df is None:
             raise ValueError('Dataframe of edges does not exist, please generate df with convert_graph_edges_to_df()')
         
         edge_attributes = self.graph_edges_df.columns
         return edge_attributes
     
+    
     def get_node_attribute_types(self):
+        """Get the attributes from the nodes in the graph
+        
+        Developed by Job de Vogel
+            
+        Related class object parameters
+        ---------      
+        self.graph_nodes_df : Pandas DataFrame
+            DataFrame with nodes of the graphs stored
+        """
         if self.graph_nodes_df is None:
             raise ValueError('Dataframe of nodes does not exist, please generate df with convert_graph_nodes_to_df()')
         
         node_attributes = self.graph_nodes_df.columns
         return node_attributes
     
-    # Access all node osmid's from graph
-    # Returns a list
+    
     def get_node_osmids(self):
+        """Get the osm id's from the nodes in the graph
+        
+        Developed by Job de Vogel
+            
+        Related class object parameters
+        ---------      
+        self.graph : networkx graph
+            Multigraph of the streets and junctions.
+        """
         if self.graph is None:
             raise ValueError('Graph does not exist, please generate graph with load_osm_graph()')
         return list(self.graph.nodes())
     
+    
     def get_edge_osmids(self):
+        """Get the osm id's from the edges in the graph
+        
+        Developed by Job de Vogel
+            
+        Related class object parameters
+        ---------      
+        self.graph : networkx graph
+            Multigraph of the streets and junctions.
+        """
         if self.graph is None:
             raise ValueError('Graph does not exist, please generate graph with load_osm_graph()')
         return self.graph_edges_df['osmid'].values
 
-    def get_xy_destinations(self):
+
+    def get_yx_destinations(self):
+        """Get the yx coordinates of the destinations in the graphs
+        from the building_addr_df DataFrame.
+        
+        Developed by Job de Vogel
+            
+        Related class object parameters
+        ---------      
+        self.building_addr_df : Pandas DataFrame
+            Pandas DataFrame with data about the buildings and adresses
+        """
         return list(self.building_addr_df.loc[:, ['y', 'x']].itertuples(index=False, name=None))
 
-    """ Storing the graph as a pickle file avoids having to recalculate
-    attributes such as speed, length etc. and is way faster
-    """
-    def save_graph(self, name: str, folder: str):        
+
+    def save_graph(self, name: str, folder: str):
+        """Save the CityNetwork class object to a .pkl file
+        
+        Developed by Job de Vogel
+        
+        Parameters
+        ----------
+        name : string
+            Name of the file to save
+        
+        folder : string
+            Folder to save the file
+        """
+        
         object_name = name
         path = folder + str(object_name) + '.pkl'
         print('Saving {} to {}'.format(object_name, path))
@@ -258,7 +481,41 @@ class CityNetwork():
         with open(path, 'wb') as file:
             pickle.dump(self, file, pickle.HIGHEST_PROTOCOL)
 
+
     def nearest_edges(self, interpolate, cpus=None, _multiply=1):
+        """Compute the nearest edges to the buildings in the graph
+        
+        Developed by Job de Vogel
+        
+        Parameters
+        ----------
+        interpolate : float
+            The distance at which edges should be interpolated
+        
+        cpus : int
+            Number of cpu cores used
+        
+        _multiply : int
+            Multiplication factor to repeat the computation
+            
+
+        Related class object parameters
+        ---------      
+        self.ne : list of tuples
+            The nearest edges to destinations
+        
+        self.ne_dist : list of floats
+            The distances to the nearest edges
+        
+        self.interpolation : list of tuples
+            The interpolated vertices of the graph edges
+        
+        
+        Returns
+        ---------
+        self.ne : list of tuples       
+        """
+
         buildings_yx = list(self.building_addr_df.loc[:, ['y', 'x']].itertuples(index=False, name=None))
         y, x = list(map(list, zip(*buildings_yx)))
 
@@ -276,7 +533,30 @@ class CityNetwork():
         else:
             return self.ne
     
+    
     def drop_outliers(self, min_dist):
+        """Remove destinations further than min_dist meters to the nearest edge
+        
+        Developed by Job de Vogel
+        
+        Parameters
+        ----------
+        min_dist : float
+            The minimum distance at which destination is removed
+
+
+        Related class object parameters
+        ---------
+        self.building_addr_df : Pandas DataFrame
+            Pandas DataFrame with data about buildings and adresses
+        
+        self.ne : list of tuples
+            The nearest edges to destinations
+        
+        self.ne_dist : list of floats
+            The distances to the nearest edges       
+        """
+        
         drop_outliers = []
         for i, dist in enumerate(self.ne_dist):
             if dist > min_dist:
@@ -289,7 +569,14 @@ class CityNetwork():
 
         print(f'Dropped {len(drop_outliers)} outliers further than {min_dist}m from edges')
 
-    def shortest_paths(self, orig, dest, orig_edge, dest_edge, weight='travel_time', method='dijkstra', return_path=False, cpus=None, _multiply=1):
+
+    def _shortest_paths(self, orig, dest, orig_edge, dest_edge, weight='travel_time', method='dijkstra', return_path=False, cpus=None, _multiply=1):
+        """DEPRECATED
+        
+        This method is replaced by the muticore single source shortest path
+        algorithm, because of speed and efficiency.    
+        """
+        
         # Check if all inputs are lists, required for multicore calculation
         if isinstance(orig, tuple):
             orig = [orig]
@@ -316,9 +603,56 @@ class CityNetwork():
 
         return paths
 
-    # Plot the map without any routes
-    # Copy from osmnx and taxicab, changed to work for multiple routes, annotations and marks
+
     def plot(self, routes=None, origins=None, destinations=None, annotations=False, marks=None, route_color_mask=None, orig_color_mask=None, dest_color_mask=None, fig_name = None, dpi=100, save=False, show=False):
+        """Plot, save and show one or multiple images
+        
+        Developed by Job de Vogel
+        
+        Parameters
+        ----------
+        routes : list or None
+            Result from the multicore single source shortest path algorithm
+        
+        origins : list of tuples or None
+            The origin locations of the shortest paths
+
+        destinations : list of tuples or None
+            The destinations locations of the shortest paths
+
+        annotations : string or None
+            Information to be added to streets. E.g. 'name', 'speed', 'experience'
+            
+        route_color_mask : list of strings or None
+            Colors to be used for routes
+        
+        orig_color_mask : list of strings or None
+            Colors to be used for origins
+            
+        dest_color_mask : list of strings or None
+            Colors to be used for destinations
+        
+        fig_name : string or None
+            Name of the figure
+
+        dpi : int
+            Pixels per inch
+        
+        save : bool
+            Indicates if image should be saved
+            
+        show : bool
+            Indicates if images should be shown
+        
+
+        Related class object parameters
+        ---------
+        self.graph : networkx graph
+            Multigraph of the streets and junctions.
+            
+        All class variables for plotting 
+        """
+        
         if routes is not None:
             fig, ax = ox.plot_graph(self.graph, show=False, save=False, close=False,
                 figsize = self.figsize,
@@ -450,6 +784,23 @@ class CityNetwork():
     # Call this function through var = CityNetwork.load_graph('var')
     @staticmethod
     def load_graph(name: str, folder: str):
+        """Load the CityNetwork class object from a .pkl file
+        
+        Loading the graph as a .pkl file avoids having to recompute
+        and load a graph. Attributes are already saved and can be
+        reused. Call this function through var = CityNetwork.load_graph('var')
+        
+        Developed by Job de Vogel
+        
+        Parameters
+        ----------
+        name : string
+            Name of the file to load
+        
+        folder : string
+            Folder to load the file from
+        """
+        
         object_name = name
         path = folder + str(object_name) + '.pkl'
 
@@ -460,13 +811,3 @@ class CityNetwork():
         print('Loaded {} to object...'.format(object_name))
         
         return graph
-
-# Decorator to time functions, just a useful decorator
-def timer_decorator(func):
-    def wrapper():
-        start = time.time()
-        func()
-        end = time.time()
-        print('Executed {} fuction in {}s'.format(func.__name__, (round(end-start,2))))
-        return func
-    return wrapper

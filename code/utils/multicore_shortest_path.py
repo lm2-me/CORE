@@ -26,20 +26,20 @@ import time
     
     The following functionalies have been added:
 
-    - The shortest paths can now be calculated using multicore
+    >>> The shortest paths can now be calculated using multicore
     processing. For this the code OSMnx by gboeing was implemented.
-    - Different shortest path algorithms can now be used, such as
+    >>> Different shortest path algorithms can now be used, such as
     astar, dijkstra, bellman-ford.
-    - A specific weight can be used to calculate shortest paths,
+    >>> A specific weight can be used to calculate shortest paths,
     instead of only 'length', such as 'travel_time' or 'experience'.
-    - The nearest_edge calculation has been moved to another
+    >>> The nearest_edge calculation has been moved to another
     function and optimized.
-    - The code of Taxicab contains multiple bugs related to exceptional
+    >>> The code of Taxicab contains multiple bugs related to exceptional
     cases for short routes. This package solves that issue.
-    - Adds support for multicore single source Dijkstra calculations
+    >>> Adds support for multicore single source Dijkstra calculations
     with cutoff values.
-    - Convert the shortest path results to a Dataframe.
-    - Multiple upgrades to improve speed performance.
+    >>> Convert the shortest path results to a Dataframe.
+    >>> Multiple upgrades to improve speed performance.
 '''
 
 def transform_coordinates(coordinate: tuple or list, from_crs="epsg:4326", to_crs="epsg:3857"):
