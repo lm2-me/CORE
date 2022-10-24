@@ -13,7 +13,7 @@ import osmnx as ox
 import time
 
 '''
-ImportError? Move this file to code folder TEMPORATILY
+DEPRECATED!!!
 '''
 
 ''' --- CityNetwork EXAMPLE ---

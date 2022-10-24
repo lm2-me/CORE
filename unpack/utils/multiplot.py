@@ -153,17 +153,23 @@ def multiplot_save(cluster_iterations, CityNetwork, destinations, closest_hub_fu
     print(f"Saving {len(cluster_iterations)} plots using {cpus} CPUs...")
 
     if cpus == 1:
-        for i, iteration in enumerate(cluster_iterations):
-            print(f"Plotting figure {i}...")
-            closest_hubs, assigned_houses = closest_hub_func(iteration)
+        if cluster_iterations is not None:
+            for i, iteration in enumerate(cluster_iterations):
+                print(f"Plotting figure {i}...")
+                closest_hubs, assigned_houses = closest_hub_func(iteration)
 
-            cleaned_paths, destinations, color_mask, orig_color_mask = format_paths_for_plot(iteration, iteration.keys(), destinations, closest_hubs, assigned_houses, colors)
+                cleaned_paths, destinations, color_mask, orig_color_mask = format_paths_for_plot(iteration, iteration.keys(), destinations, closest_hubs, assigned_houses, colors)
 
-            CityNetwork.plot(routes=cleaned_paths, origins=iteration.keys(), destinations=destinations, route_color_mask=color_mask, orig_color_mask=orig_color_mask, dest_color_mask=color_mask, fig_name=f"{session_name}_plot_{i}", dpi=dpi, save=True, show=False)
+                CityNetwork.plot(routes=cleaned_paths, origins=iteration.keys(), destinations=destinations, route_color_mask=color_mask, orig_color_mask=orig_color_mask, dest_color_mask=color_mask, fig_name=f"{session_name}_plot_{i}", dpi=dpi, save=True, show=False)
+        else:
+            CityNetwork.plot(routes=None, origins=iteration.keys(), destinations=destinations, route_color_mask=color_mask, orig_color_mask=orig_color_mask, dest_color_mask=color_mask, fig_name=f"{session_name}_plot_{i}", dpi=dpi, save=True, show=False)
     else:
         print("USER-WARNING: Make sure you put the multiplot function in a 'if __name__ == '__main__' statement!")
         # If multi-threading, calculate shortest paths in parallel
-        args = ((iteration, i, CityNetwork, destinations, closest_hub_func, colors, session_name, dpi) for i, iteration in enumerate(cluster_iterations))
+        if cluster_iterations is not None:
+            args = ((iteration, i, CityNetwork, destinations, closest_hub_func, colors, session_name, dpi) for i, iteration in enumerate(cluster_iterations))
+        else:
+            args = ((None, i, CityNetwork, destinations, closest_hub_func, colors, session_name, dpi) for i, _ in enumerate(cluster_iterations))
         pool = mp.Pool(cpus)
 
         sma = pool.starmap_async(_plot, tqdm.tqdm(args, total=len(cluster_iterations)))

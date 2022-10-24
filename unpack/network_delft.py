@@ -51,15 +51,15 @@ class CityNetwork():
     
     # Plot settings
     figsize=(8, 8) 
-    bgcolor = '#181717'
-    edge_color = 'lightgray'
-    node_color = 'white'
-    edge_linewidth = 1
+    bgcolor = 'white'
+    edge_color = 'black'
+    node_color = 'black'
+    edge_linewidth = 0.5
     node_size=1.5
-    route_color = '#C90808'
-    route_width = 1.2
-    origin_color = '#FFE54F'
-    destination_color = '#82C5DA'
+    route_color = 'black'
+    route_width = 0.6
+    origin_color = 'black'
+    destination_color = 'black'
     marker_color = 'purple'
     font_color = 'lightgray'
     font_size = 7
@@ -752,14 +752,14 @@ class CityNetwork():
         if destinations is not None:
             if dest_color_mask == None:
                 for dest in destinations:
-                    ax.scatter(dest[1], dest[0], color=self.destination_color, marker='.', s=5, label='orig-point')
+                    ax.scatter(dest[1], dest[0], color=self.destination_color, marker='.', s=3, label='orig-point')
             # Use color mask for destinations
             else:
                 if len(destinations) != len(dest_color_mask):
                     raise ValueError("Destinations and dest_color_mask should have same length.")
 
                 for dest, dest_color in zip(destinations, dest_color_mask):
-                    ax.scatter(dest[1], dest[0], color=dest_color, marker='.', s=5, label='orig-point')
+                    ax.scatter(dest[1], dest[0], color=dest_color, marker='.', s=3, label='orig-point')
 
         # Add annotations to the edges, can be names, travel_times etc.
         if annotations:
@@ -773,9 +773,9 @@ class CityNetwork():
 
         if save:
             if fig_name == None:
-                fig.savefig(f'data/plot_pngs/plot_{time.time()}.png', dpi=dpi)
+                fig.savefig(f'data/plot_pngs/plot_{time.time()}.png', format='png', dpi=dpi)
             else:
-                fig.savefig(f'data/plot_pngs/{fig_name}.png', dpi=dpi)
+                fig.savefig(f'data/plot_pngs/{fig_name}.png', format='png', dpi=dpi)
 
         return fig, ax
 

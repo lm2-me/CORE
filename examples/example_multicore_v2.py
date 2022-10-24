@@ -25,6 +25,7 @@ def main():
     # Load the CityNetwork
     City = CityNetwork.load_graph(name, data_folder)
 
+    City.plot(show=True)
 
     # CALCULATE NEAREST EDGES IF NOT AVAILABLE IN City.ne    
     # City.ne = None
