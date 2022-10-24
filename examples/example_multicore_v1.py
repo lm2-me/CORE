@@ -1,9 +1,12 @@
-import matplotlib.pyplot as plt
+# Import unpack from parent directory
+import sys
+import os
 
-from network_delft import CityNetwork
-from utils.multicore_shortest_path import transform_coordinates
-from utils.multicore_nearest_edges import multicore_nearest_edge
-from utils.utils.timer import timer_decorator
+current = os.path.dirname(os.path.realpath(__file__))
+parent_directory = os.path.dirname(current)
+sys.path.append(parent_directory)
+
+from unpack import *
 
 import osmnx as ox
 

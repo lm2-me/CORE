@@ -37,9 +37,9 @@ import pickle
 import time
 import overpy
 
-from utils.multicore_shortest_path import multicore_shortest_path
-from utils.multicore_nearest_edges import multicore_nearest_edge
-from utils.osm_data_request import *
+from .utils import multicore_shortest_path
+from .utils.multicore_nearest_edges import multicore_nearest_edge
+from .utils.osm_data_request import *
 
 class CityNetwork():
     """A CityNetwork class that contains osm and cbs information about

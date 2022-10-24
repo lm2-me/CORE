@@ -4,7 +4,7 @@ import pandas as pd
 from pyproj import Transformer
 import requests
 import geopandas as gpd
-from utils.multicore_shortest_path import transform_coordinates
+from .utils.transform_coordinates import transform_coordinates
 from shapely.geometry import Point
 from shapely.geometry import Polygon
 

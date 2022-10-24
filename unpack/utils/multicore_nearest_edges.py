@@ -179,12 +179,12 @@ def multicore_nearest_edge(graph, X, Y, interpolate, cpus=1):
     if cpus == 1:
         # if single-threading, calculate each shortest path one at a time
         # Return route_weight, route, partial_edge_1 and partial_edge_2
-        result = [_single_find_nearest_edge(x, y, vertices, is_scalar) for x, y in zip(X, Y)]
+        result = [_single_find_nearest_edge(x, y, vertices) for x, y in zip(X, Y)]
         dist, ne = list(map(list, zip(*result)))
     else:
         print("USER-WARNING: Make sure you put the multicore_nearest_edge function in a 'if __name__ == '__main__' statement!")
         # If multi-threading, calculate shortest paths in parallel           
-        args = ((x, y, vertices, is_scalar) for x, y in zip(X, Y))
+        args = ((x, y, vertices) for x, y in zip(X, Y))
         pool = mp.Pool(cpus)
 
         # Add kwargs using partial method

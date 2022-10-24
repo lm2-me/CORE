@@ -109,7 +109,7 @@ def _plot(cluster_iteration, i, CityNetwork, destinations, closest_hub_func, col
 
     CityNetwork.plot(routes=cleaned_paths, origins=cluster_iteration.keys(), destinations=destinations, route_color_mask=color_mask, orig_color_mask=orig_color_mask, dest_color_mask=color_mask, fig_name=f"{session_name}_{i}", dpi=dpi, save=True, show=False)
 
-def multiplot_save(cluster_iterations, CityNetwork, destinations, closest_hub_func, colors, session_name, dpi=100, cpus=None):
+def multiplot_save(cluster_iterations, CityNetwork, destinations, closest_hub_func, colors, session_name, dpi=100, cpus=None, show=False):
     """Plot and save multiple images with clusters and paths
 
     Args:

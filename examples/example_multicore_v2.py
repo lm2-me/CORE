@@ -1,12 +1,18 @@
-from utils.multicore_shortest_path import paths_to_dataframe
-from network_delft import CityNetwork, timer_decorator
-from utils.multicore_shortest_path import multicore_single_source_shortest_path, closest_hub, _get_partial_edges
-from utils.multiplot import multiplot_save
+# Import unpack from parent directory
+import sys
+import os
+
+current = os.path.dirname(os.path.realpath(__file__))
+parent_directory = os.path.dirname(current)
+sys.path.append(parent_directory)
+
+import unpack
+from unpack import CityNetwork
 
 import random
 import time
 
-@timer_decorator
+@unpack.timer_decorator
 def main():
     # LOAD THE NETWORK (SIMILAR AS BEFORE)
     name = 'Full_Delft_walk'
@@ -31,7 +37,7 @@ def main():
     dest_edges = City.ne
 
     # Extract the new destinations skipping the outliers
-    destinations = City.get_xy_destinations()
+    destinations = City.get_yx_destinations()
 
     # MULTICORE V2 STARTS HERE:
     # Compute shortest paths by hub for n clustering iterations
@@ -57,7 +63,7 @@ def main():
         # Calculate shortest paths by hub
         # Check the code for description of inputs.
         # For smaller networks, single core can be 2x faster than multicore.
-        paths = multicore_single_source_shortest_path(City.graph, hubs, destinations, dest_edges,
+        paths = unpack.multicore_single_source_shortest_path(City.graph, hubs, destinations, dest_edges,
             skip_non_shortest=True, 
             weight='travel_time', 
             cutoff=600, 
@@ -65,7 +71,7 @@ def main():
             )
 
         # Show the results
-        paths_df = paths_to_dataframe(paths, hubs=hubs)
+        paths_df = unpack.paths_to_dataframe(paths, hubs=hubs)
         print(paths_df)
 
         '''
@@ -93,7 +99,7 @@ def main():
     colors = ['red', 'orange', 'yellow', 'pink', 'purple', 'peru']
     
     # TODO: remove closest hub function from the multiplot_save inputs
-    multiplot_save(cluster_iterations, City, destinations, closest_hub, colors, session_name, dpi=300, cpus=None)
+    unpack.multiplot_save(cluster_iterations, City, destinations, unpack.closest_hub, colors, session_name, dpi=300, cpus=None)
     
     end = time.time()
     print(f"Finished multiplot in {end-start}s")
