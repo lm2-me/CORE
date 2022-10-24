@@ -9,9 +9,9 @@ TU Delft, Q1 2022
 Please install this package using `conda env create -f conda_env.yml` which uses the `conda_env.yml`.
 Installing may take several minutes.
 
-Run the package by running the 'run.py' Jupyter Notebook file. 
+Run this package by running the 'run.py' Jupyter Notebook file. 
 
-
+---
 The following code was developed for this project by the team:
     
 - run (Job de Vogel)
