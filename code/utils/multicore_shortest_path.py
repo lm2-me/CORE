@@ -17,6 +17,7 @@ from functools import partial
 from pyproj import Transformer
 
 import tqdm
+import time
 
 '''
     This code, written by Job de Vogel, builds further on the
@@ -211,6 +212,43 @@ def _get_edge_geometry(G, edge):
     return LineString([
         (G.nodes[edge[0]]['x'], G.nodes[edge[0]]['y']),
         (G.nodes[edge[1]]['x'], G.nodes[edge[1]]['y'])])
+
+def _get_partial_edges(graph, nearest_edge, coordinate_yx):
+    """ Compute partial edges from a nearest edge
+
+    Developed by Job de Vogel, adapted from Taxicab (Nathan Rooy)
+    
+    Parameters
+    ----------
+    graph : OSMnx graph
+    
+    nearest_edge : tuple
+        Nearest edge to coordinate_yx in graph
+    
+    coordinate_yx : tuple
+        Coordinate to find partial edges from
+    
+    Returns
+    -------
+    partial_edge_1 : LineString
+        First partial edge
+    
+            
+    partial_edge_2 : LineString
+        Second partial edge
+    """
+    
+    point = Point(coordinate_yx[::-1])
+
+    edge_geo = _get_edge_geometry(graph, nearest_edge)
+
+    edge_clip = edge_geo.project(point, normalized=True)
+
+    partial_edge_1 = substring(edge_geo, edge_clip, 1, normalized=True)
+    partial_edge_2 = substring(edge_geo, 0, edge_clip, normalized=True)
+
+    return (partial_edge_1, partial_edge_2)
+    
 
 def closest_hub(paths_dict):
     """ Compute the closest hub to a destination
@@ -450,7 +488,7 @@ def _single_shortest_path(G, orig_yx, dest_yx, orig_edge, dest_edge,
 
     return route_weight, nx_route, orig_partial_edge, dest_partial_edge
 
-def _single_source_shortest_path(graph, orig, dest, orig_edge, dest_edges, path_weights=None, method='dijkstra', weight='travel_time', cutoff=None):
+def _single_source_shortest_path(graph, orig, dest, orig_edge, dest_edges, orig_partial_edges, dest_partial_edges, path_weights=None, method='dijkstra', weight='travel_time', cutoff=None):
     """ Compute all shortest paths from a certain origin, considering
     a cutoff value.
 
@@ -472,6 +510,14 @@ def _single_source_shortest_path(graph, orig, dest, orig_edge, dest_edges, path_
 
     dest_edge : tuple or list of tuples
         Tuple indicating the nearest edge to the destinations
+
+    orig_partial_edges : list of tuples of LineStrings (empty list if no LineString)
+        Tuple with precomputed partial edges at intersection
+        between nearest point on nearest edge and nearest edge.
+
+    dest_partial_edges : list of tuples of LineStrings (empty list if no LineString)
+        Tuple with precomputed partial edges at intersection
+        between nearest point on nearest edge and nearest edge.
 
     path_weights : list of floats or None
         If path_weights is given, considering single core computation
@@ -504,7 +550,7 @@ def _single_source_shortest_path(graph, orig, dest, orig_edge, dest_edges, path_
     orig_partial_edge : LineString
         The LineString at the origin of the path.
     
-    dest_partial_edge
+    dest_partial_edge : LineString
         The Linestring at the destination of the path.
     """
 
@@ -518,11 +564,7 @@ def _single_source_shortest_path(graph, orig, dest, orig_edge, dest_edges, path_
     # Extract the weights and routes of the paths
     route_weights, nx_routes = nx_routes
 
-    # Retrieve origin edge geometry
-    orig_geo = _get_edge_geometry(graph, orig_edge)
-
     result = []
-    
     for i, (destination, dest_edge) in enumerate(zip(dest, dest_edges)):
 
         # Check if destination within cutoff range
@@ -556,18 +598,11 @@ def _single_source_shortest_path(graph, orig, dest, orig_edge, dest_edges, path_
                 dest_partial_edge = []
                 nx_route = []
             else:
-                # Use the previously calculated nx_routes
-                p_o, p_d = Point(orig[::-1]), Point(destination[::-1])
-
-                dest_geo = _get_edge_geometry(graph, dest_edge)
-
-                orig_clip = orig_geo.project(p_o, normalized=True)
-                dest_clip = dest_geo.project(p_d, normalized=True)
-
-                orig_partial_edge_1 = substring(orig_geo, orig_clip, 1, normalized=True)
-                orig_partial_edge_2 = substring(orig_geo, 0, orig_clip, normalized=True)
-                dest_partial_edge_1 = substring(dest_geo, dest_clip, 1, normalized=True)
-                dest_partial_edge_2 = substring(dest_geo, 0, dest_clip, normalized=True)
+                try:
+                    orig_partial_edge_1, orig_partial_edge_2 = orig_partial_edges
+                except:
+                    print(orig_partial_edges)
+                dest_partial_edge_1, dest_partial_edge_2 = dest_partial_edges[i][0], dest_partial_edges[i][1]
 
                 # Retrieve the right weigh based on the hub edge
                 route_weight = route_weights[dest_edge[0]]
@@ -863,21 +898,40 @@ def multicore_single_source_shortest_path(graph, orig, dest, dest_edges, skip_no
     y_orig, x_orig = list(map(list, zip(*orig)))
     orig_edges = ox.nearest_edges(graph, x_orig, y_orig)
 
+    orig_partial_edges = []
+    for coordinate, orig_edge in zip(orig, orig_edges):
+        orig_partial_edges.append(
+            _get_partial_edges(graph, orig_edge, coordinate)
+            )
+
+    dest_partial_edges = []
+    for coordinate, dest_edge in zip(dest, dest_edges):
+        dest_partial_edges.append(
+            _get_partial_edges(graph, dest_edge, coordinate)
+            )
+    ########################################################################
+
     orig_paths = {}
     if cpus == 1:
         if skip_non_shortest:
             print(f"Solving {len(orig)} single sources using {method} algorithm with cutoff {cutoff} on weight '{weight}', skipping non-shortest paths using {cpus} CPUs...")
 
             path_weights = [float('inf')] * len(dest) 
-            for orig, orig_edge in zip(orig, orig_edges):
-                paths, path_weights = _single_source_shortest_path(graph, orig, dest, orig_edge, dest_edges, path_weights=path_weights, method=method, weight=weight, cutoff=cutoff)
+            for i, (orig, orig_edge) in enumerate(zip(orig, orig_edges)):
+                start = time.time()
+
+                partial_orig = orig_partial_edges[i]
+                paths, path_weights = _single_source_shortest_path(graph, orig, dest, orig_edge, dest_edges, partial_orig, dest_partial_edges, path_weights=path_weights, method=method, weight=weight, cutoff=cutoff)
+                end = time.time()
 
                 orig_paths[orig] = paths
+                print(f"Finished hub {i + 1} in {round(end-start, 2)}s...")
         else:
             print(f"Solving {len(orig)} single sources using {method} algorithm with cutoff {cutoff} on weight '{weight}' using {cpus} CPUs...")
 
-            for orig, orig_edge in zip(orig, orig_edges):
-                paths = _single_source_shortest_path(graph, orig, dest, orig_edge, dest_edges, method=method, weight=weight, cutoff=cutoff)
+            for i, (orig, orig_edge) in enumerate(zip(orig, orig_edges)):
+                partial_orig = orig_partial_edges[i]
+                paths = _single_source_shortest_path(graph, orig, dest, orig_edge, dest_edges, partial_orig, dest_partial_edges, method=method, weight=weight, cutoff=cutoff)
 
                 orig_paths[orig] = paths
     else:
@@ -897,7 +951,7 @@ def multicore_single_source_shortest_path(graph, orig, dest, dest_edges, skip_no
             print("USER-WARNING: Number of origins to compute is lower than number of cpu cores used. It is recommended to set cpus=1 for better performance.")
         
         # If multi-threading, calculate shortest paths in parallel
-        args = ((graph, o, dest, orig_edge, dest_edges) for o, orig_edge in zip(orig, orig_edges))
+        args = ((graph, o, dest, orig_edge, dest_edges, orig_partial_edges[i], dest_partial_edges) for i, (o, orig_edge) in enumerate(zip(orig, orig_edges)))
         pool = mp.Pool(cpus)
 
         # Add kwargs using partial method

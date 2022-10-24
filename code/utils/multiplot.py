@@ -2,6 +2,19 @@ import multiprocessing as mp
 import tqdm
 
 def format_paths_for_plot(paths, orig_yx, dest_yx, closest_hubs, assigned_houses, colors):
+    """_summary_
+
+    Args:
+        paths (_type_): _description_
+        orig_yx (_type_): _description_
+        dest_yx (_type_): _description_
+        closest_hubs (_type_): _description_
+        assigned_houses (_type_): _description_
+        colors (_type_): _description_
+
+    Returns:
+        _type_: _description_
+    """
     destinations = []
     for i, dest in enumerate(dest_yx):
         if i in assigned_houses:
@@ -17,6 +30,18 @@ def format_paths_for_plot(paths, orig_yx, dest_yx, closest_hubs, assigned_houses
     return cleaned_paths, destinations, color_mask, orig_color_mask
 
 def _plot(cluster_iteration, i, CityNetwork, destinations, closest_hub_func, colors, session_name, dpi):
+    """_summary_
+
+    Args:
+        cluster_iteration (_type_): _description_
+        i (_type_): _description_
+        CityNetwork (_type_): _description_
+        destinations (_type_): _description_
+        closest_hub_func (_type_): _description_
+        colors (_type_): _description_
+        session_name (_type_): _description_
+        dpi (_type_): _description_
+    """
     closest_hubs, assigned_houses = closest_hub_func(cluster_iteration)
 
     cleaned_paths, destinations, color_mask, orig_color_mask = format_paths_for_plot(cluster_iteration, cluster_iteration.keys(), destinations, closest_hubs, assigned_houses, colors)
@@ -24,6 +49,18 @@ def _plot(cluster_iteration, i, CityNetwork, destinations, closest_hub_func, col
     CityNetwork.plot(routes=cleaned_paths, origins=cluster_iteration.keys(), destinations=destinations, route_color_mask=color_mask, orig_color_mask=orig_color_mask, dest_color_mask=color_mask, fig_name=f"{session_name}_{i}", dpi=dpi, save=True, show=False)
 
 def multiplot_save(cluster_iterations, CityNetwork, destinations, closest_hub_func, colors, session_name, dpi=100, cpus=None):
+    """_summary_
+
+    Args:
+        cluster_iterations (_type_): _description_
+        CityNetwork (_type_): _description_
+        destinations (_type_): _description_
+        closest_hub_func (_type_): _description_
+        colors (_type_): _description_
+        session_name (_type_): _description_
+        dpi (int, optional): _description_. Defaults to 100.
+        cpus (_type_, optional): _description_. Defaults to None.
+    """
     # Figure out how many cpu cores are available
     if cpus is None:
         cpus = mp.cpu_count()

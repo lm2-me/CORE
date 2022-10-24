@@ -1,6 +1,6 @@
 from utils.multicore_shortest_path import paths_to_dataframe
 from network_delft import CityNetwork, timer_decorator
-from utils.multicore_shortest_path import multicore_single_source_shortest_path, closest_hub
+from utils.multicore_shortest_path import multicore_single_source_shortest_path, closest_hub, _get_partial_edges
 from utils.multiplot import multiplot_save
 
 import random
@@ -9,7 +9,7 @@ import time
 @timer_decorator
 def main():
     # LOAD THE NETWORK (SIMILAR AS BEFORE)
-    name = 'Delft_center_walk'
+    name = 'Full_Delft_walk'
     data_folder = 'data/'
     vehicle_type = 'walk' # walk, bike, drive, all (See osmnx documentation)
 
@@ -33,7 +33,6 @@ def main():
     # Extract the new destinations skipping the outliers
     destinations = City.get_xy_destinations()
 
-
     # MULTICORE V2 STARTS HERE:
     # Compute shortest paths by hub for n clustering iterations
     # Hubs are randomly placed each iteration, just as example
@@ -47,20 +46,21 @@ def main():
 
         # Delft Center
         # Should be defined by k++ version of k-means in final algorithm
-        hubs = [(random.randint(6801030, 6803490), random.randint(484261, 486397)) for _ in range(num_hubs)]
+        # hubs = [(random.randint(6801030, 6803490), random.randint(484261, 486397)) for _ in range(num_hubs)]
         
         # Full Delft
-        # hubs = [(random.randint(6792760, 6805860), random.randint(478510, 490000)) for _ in range(num_hubs)]
+        hubs = [(random.randint(6792760, 6805860), random.randint(478510, 490000)) for _ in range(num_hubs)]
 
         print(f"Cluster iteration {i} started...")
         start=time.time()
 
         # Calculate shortest paths by hub
         # Check the code for description of inputs.
-        paths = multicore_single_source_shortest_path(City.graph, hubs, destinations, dest_edges, 
-            skip_non_shortest=False, 
+        # For smaller networks, single core can be 2x faster than multicore.
+        paths = multicore_single_source_shortest_path(City.graph, hubs, destinations, dest_edges,
+            skip_non_shortest=True, 
             weight='travel_time', 
-            cutoff=None, 
+            cutoff=600, 
             cpus=12
             )
 
@@ -92,7 +92,7 @@ def main():
     
     colors = ['red', 'orange', 'yellow', 'pink', 'purple', 'peru']
     
-    # To do: remove closest hub function from the multiplot_save inputs
+    # TODO: remove closest hub function from the multiplot_save inputs
     multiplot_save(cluster_iterations, City, destinations, closest_hub, colors, session_name, dpi=300, cpus=None)
     
     end = time.time()
