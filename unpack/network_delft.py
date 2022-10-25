@@ -739,14 +739,14 @@ class CityNetwork():
         if origins is not None:
             if orig_color_mask == None:
                 for orig in origins:
-                    ax.scatter(orig[1], orig[0], color=self.origin_color, marker='.', s=30, label='orig-point')
+                    ax.scatter(orig[1], orig[0], color=self.origin_color, marker='.', s=50, label='orig-point')
             # Use color mask for origins
             else:
                 if len(origins) != len(orig_color_mask):
                     raise ValueError("Origins and orig_color_mask should have same length.")
 
                 for orig, orig_color in zip(origins, orig_color_mask):
-                    ax.scatter(orig[1], orig[0], color=orig_color, marker='.', s=20, label='orig-point')
+                    ax.scatter(orig[1], orig[0], color=orig_color, marker='.', s=50, label='orig-point')
 
         # Plot the destinations with an x mark
         if destinations is not None:
