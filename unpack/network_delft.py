@@ -191,8 +191,7 @@ class CityNetwork():
                         pass
                 
                 if error == len(self.url):
-                    print("The request is currently unable to gather Overpass data, please retry manually in 30 seconds")
-                    exit()
+                    raise RuntimeError("The request is currently unable to gather Overpass data, please retry manually in 30 seconds")
             
             # Load the building and adress data from csv
             addr_frame =  load_csv(adress_path)
