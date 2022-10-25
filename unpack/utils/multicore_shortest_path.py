@@ -36,6 +36,9 @@ import time
     function and optimized.
     >>> The code of Taxicab contains multiple bugs related to exceptional
     cases for short routes. This package solves that issue.
+    >>> The multicore computations share a list variable in memory, called
+    path_weights, which allows for skipping paths if a shorter path was
+    already found by this or another cpu core computation.
     >>> Adds support for multicore single source Dijkstra calculations
     with cutoff values.
     >>> Convert the shortest path results to a Dataframe.
@@ -437,7 +440,7 @@ def _single_shortest_path(G, orig_yx, dest_yx, orig_edge, dest_edge,
 
     return route_weight, nx_route, orig_partial_edge, dest_partial_edge
 
-def _single_source_shortest_path(graph, orig, dest, orig_edge, dest_edges, orig_partial_edges, dest_partial_edges, path_weights=None, method='dijkstra', weight='travel_time', cutoff=None):
+def _single_source_shortest_path(graph, orig, dest, orig_edge, dest_edges, orig_partial_edges, dest_partial_edges, path_weights=None, shared_memory_lock=None, skip_treshold=None, skipped_value=None, method='dijkstra', weight='travel_time', cutoff=None):
     """ Compute all shortest paths from a certain origin, considering
     a cutoff value.
 
@@ -473,7 +476,17 @@ def _single_source_shortest_path(graph, orig, dest, orig_edge, dest_edges, orig_
         the algorithm will skip computations of shortest paths for
         destinations that already have a closer hub. This can drastically
         reduce the computation time, but comes with a cost of accuracy.
+        
+    shared_memory_lock : mp.manager.Lock or None
+        While comparing current weight results of the shortest path to ealier
+        results in multicore computation, memory access should be protected.
+        Therefore the path_weights are only accessed when allowed by the lock.
     
+    skip_treshold : float or None
+        The minimal difference between current result and ealier path_weights
+        to skip the current computation. This value should avoid rare mistakes
+        in the selection of the right origin.
+        
     method : string
         Method to use for shortest path, can be 'dijkstra',
         'bellman-ford'.
@@ -521,13 +534,52 @@ def _single_source_shortest_path(graph, orig, dest, orig_edge, dest_edges, orig_
 
             # Path computations from orig to dest will be skipped if an
             # earlier weight value for dest was already lower than 
-            # the weight computed by single source computation. This might
-            # result in very rare occasions of not finding the closest hub
-            # but almost the closest hub, but saves on computation time.
-            if path_weights is not None:
-                 if path_weights[i] < route_weights[dest_edge[0]]:
+            # the weight computed by single source computation. In rare
+            # occassions this may result in the selection of the wrong path
+            # because the path origin and destinations edges are not involved
+            # in the computation yet. Therefore a skip_treshhold is used, to
+            # specify the minimum difference between earlier path_weights and
+            # the current computation from nx.single_source.
+            if (path_weights is not None) and (shared_memory_lock is not None):
+                with shared_memory_lock:
+                    if skip_treshold is not None:
+                        if (path_weights[i] < route_weights[dest_edge[0]]) and (route_weights[dest_edge[0]] - path_weights[i] > skip_treshold):
+                            data = [float('inf'), [], [], []]
+                            result.append(data)
+                            
+                            if skipped_value is not None:
+                                skipped_value.value += 1
+                            
+                            continue
+                    # No skip treshold is used
+                    else:
+                        if path_weights[i] < route_weights[dest_edge[0]]:
+                            data = [float('inf'), [], [], []]
+                            result.append(data)
+                            
+                            if skipped_value is not None:
+                                skipped_value.value += 1
+                                
+                            continue
+            # Single core, with skip_treshold
+            elif path_weights is not None and skip_treshold is not None:
+                if (path_weights[i] < route_weights[dest_edge[0]]) and (route_weights[dest_edge[0]] - path_weights[i] > skip_treshold):
                     data = [float('inf'), [], [], []]
                     result.append(data)
+                    
+                    if skipped_value is not None:
+                        skipped_value += 1
+                    
+                    continue
+            # Single core, without skip_treshold
+            elif path_weights is not None:
+                if path_weights[i] < route_weights[dest_edge[0]]:
+                    data = [float('inf'), [], [], []]
+                    result.append(data)
+                    
+                    if skipped_value is not None:
+                        skipped_value += 1
+                        
                     continue
 
             # Check if on same line, if so, use simplified calculation
@@ -643,8 +695,13 @@ def _single_source_shortest_path(graph, orig, dest, orig_edge, dest_edges, orig_
 
             route_weight = _compute_route_weight(graph, nx_route, weight, orig_partial_edge, dest_partial_edge, orig_edge, dest_edge)
 
+            # Assign new path weights if used
             if path_weights is not None:
-                path_weights[i] = route_weight
+                if shared_memory_lock is not None:
+                    with shared_memory_lock:
+                        path_weights[i] = route_weight
+                else:
+                    path_weights[i] = route_weight
 
             data = [route_weight, nx_route, orig_partial_edge, dest_partial_edge]
             result.append(data)
@@ -656,8 +713,15 @@ def _single_source_shortest_path(graph, orig, dest, orig_edge, dest_edges, orig_
     
     # Return all the paths from this origin
     if path_weights != None:
-        return result, path_weights
+        # Multicore being used, only return result
+        if shared_memory_lock != None:
+            return result
+        
+        # Single core is being used, return path_weights for next iteration
+        else:
+            return result, path_weights, skipped_value
     else:
+        # No path_weights are used, only return result
         return result
 
 def multicore_shortest_path(graph, orig, dest, orig_edge, dest_edge, method='dijkstra', weight='travel_time', return_path=False, cpus=1):
@@ -759,7 +823,7 @@ def multicore_shortest_path(graph, orig, dest, orig_edge, dest_edge, method='dij
     else:  # pragma: no cover
         raise ValueError("Please check shortest path inputs.")
 
-def multicore_single_source_shortest_path(graph, orig, dest, dest_edges, skip_non_shortest=False, method='dijkstra', weight='travel_time', cutoff=None, cpus=1):
+def multicore_single_source_shortest_path(graph, orig, dest, dest_edges, skip_non_shortest=False, skip_treshold=None, method='dijkstra', weight='travel_time', cutoff=None, cpus=1):
     """ Compute all shortest paths from multiple origins, considering
     a cutoff value and using multiple cores.
 
@@ -785,6 +849,12 @@ def multicore_single_source_shortest_path(graph, orig, dest, dest_edges, skip_no
         shortest path computations skipping destinations
         that already have a shorter path. Can dramatically
         decrease computation time but also decrease accuracy.
+    
+    skip_treshold : float or None
+        The minimal difference between current result and ealier path_weights
+        to skip the current computation. This value should avoid rare mistakes
+        in the selection of the right origin. Skip treshold is expressed in
+        the unit of selected weight.
 
     method : string
         Method to use for shortest path, can be 'dijkstra',
@@ -858,23 +928,24 @@ def multicore_single_source_shortest_path(graph, orig, dest, dest_edges, skip_no
         dest_partial_edges.append(
             _get_partial_edges(graph, dest_edge, coordinate)
             )
-    ########################################################################
 
     orig_paths = {}
     if cpus == 1:
         if skip_non_shortest:
-            print(f"Solving {len(orig)} single sources using {method} algorithm with cutoff {cutoff} on weight '{weight}', skipping non-shortest paths using {cpus} CPUs...")
+            print(f"Solving {len(orig)} single sources using {method} algorithm with cutoff {cutoff} on weight '{weight}', skipping non-shortest paths with treshold {skip_treshold} using {cpus} CPUs...")
 
-            path_weights = [float('inf')] * len(dest) 
+            path_weights = [float('inf')] * len(dest)
+            skipped = 0
             for i, (orig, orig_edge) in enumerate(zip(orig, orig_edges)):
                 start = time.time()
 
                 partial_orig = orig_partial_edges[i]
-                paths, path_weights = _single_source_shortest_path(graph, orig, dest, orig_edge, dest_edges, partial_orig, dest_partial_edges, path_weights=path_weights, method=method, weight=weight, cutoff=cutoff)
+                paths, path_weights, skipped = _single_source_shortest_path(graph, orig, dest, orig_edge, dest_edges, partial_orig, dest_partial_edges, path_weights=path_weights, skip_treshold=skip_treshold, skipped_value=skipped, method=method, weight=weight, cutoff=cutoff)
                 end = time.time()
 
                 orig_paths[orig] = paths
                 print(f"Finished hub {i + 1} in {round(end-start, 2)}s...")
+            print(f"Skipped {skipped} paths with treshold {skip_treshold} on weight {weight}.")
         else:
             print(f"Solving {len(orig)} single sources using {method} algorithm with cutoff {cutoff} on weight '{weight}' using {cpus} CPUs...")
 
@@ -894,21 +965,45 @@ def multicore_single_source_shortest_path(graph, orig, dest, dest_edges, skip_no
             if cutoff is not None:
                 print("USER-WARNING: In some cases setting cpus>1 increases computation time when cutoff is a low value. Multicore processing boosts performance when cutoff=None.")
 
-        print(f"Solving {len(orig)} single sources using {method} algorithm with cutoff {cutoff} on weight '{weight}' using {cpus} CPUs...")
-
         if cpus > len(orig):
             print("USER-WARNING: Number of origins to compute is lower than number of cpu cores used. It is recommended to set cpus=1 for better performance.")
         
-        # If multi-threading, calculate shortest paths in parallel
-        args = ((graph, o, dest, orig_edge, dest_edges, orig_partial_edges[i], dest_partial_edges) for i, (o, orig_edge) in enumerate(zip(orig, orig_edges)))
-        pool = mp.Pool(cpus)
+        # Use path_weights, initialize shared memory for path_weights
+        if skip_non_shortest:
+            print(f"Solving {len(orig)} single sources using {method} algorithm with cutoff {cutoff} on weight '{weight}', skipping non-shortest paths with treshold {skip_treshold} using {cpus} CPUs...")
+            
+            manager = mp.Manager()
+            path_weights = manager.list([float('inf')] * len(dest))
+            skipped = manager.Value('i', 0)
+            shared_memory_lock = manager.Lock()
+            
+            # If multi-threading, calculate shortest paths in parallel
+            args = ((graph, o, dest, orig_edge, dest_edges, orig_partial_edges[i], dest_partial_edges) for i, (o, orig_edge) in enumerate(zip(orig, orig_edges)))
+            pool = mp.Pool(cpus)
 
-        # Add kwargs using partial method
-        sma = pool.starmap_async(partial(_single_source_shortest_path, method=method, weight=weight, cutoff=cutoff), tqdm.tqdm(args, total=len(orig)))
+            # Add kwargs using partial method
+            sma = pool.starmap_async(partial(_single_source_shortest_path, path_weights=path_weights, shared_memory_lock=shared_memory_lock, skip_treshold=skip_treshold, skipped_value=skipped, method=method, weight=weight, cutoff=cutoff), tqdm.tqdm(args, total=len(orig)))
 
-        result = sma.get()
-        pool.close()
-        pool.join()
+            result = sma.get()
+            pool.close()
+            pool.join()
+            
+            print(f"Skipped {skipped.value} paths with treshold {skip_treshold} on weight {weight}.")
+        
+        # Do not use path_weights
+        else:
+            print(f"Solving {len(orig)} single sources using {method} algorithm with cutoff {cutoff} on weight '{weight}' using {cpus} CPUs...")
+             
+            # If multi-threading, calculate shortest paths in parallel
+            args = ((graph, o, dest, orig_edge, dest_edges, orig_partial_edges[i], dest_partial_edges) for i, (o, orig_edge) in enumerate(zip(orig, orig_edges)))
+            pool = mp.Pool(cpus)
+
+            # Add kwargs using partial method
+            sma = pool.starmap_async(partial(_single_source_shortest_path, method=method, weight=weight, cutoff=cutoff), tqdm.tqdm(args, total=len(orig)))
+
+            result = sma.get()
+            pool.close()
+            pool.join()
     
         for o, res in zip(orig, result):
             orig_paths[o] = res

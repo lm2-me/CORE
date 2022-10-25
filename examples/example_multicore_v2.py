@@ -25,7 +25,7 @@ def main():
     # Load the CityNetwork
     City = CityNetwork.load_graph(name, data_folder)
 
-    City.plot(show=True)
+    # City.plot(show=True)
 
     # CALCULATE NEAREST EDGES IF NOT AVAILABLE IN City.ne    
     # City.ne = None
@@ -63,13 +63,16 @@ def main():
 
         # Calculate shortest paths by hub
         # Check the code for description of inputs.
-        # For smaller networks, single core can be 2x faster than multicore.
+        start = time.time()
         paths = unpack.multicore_single_source_shortest_path(City.graph, hubs, destinations, dest_edges,
-            skip_non_shortest=True, 
+            skip_non_shortest=False, 
+            skip_treshold=60,
             weight='travel_time', 
-            cutoff=600, 
+            cutoff=None, 
             cpus=12
             )
+        end = time.time()
+        print(end-start)
 
         # Show the results
         paths_df = unpack.paths_to_dataframe(paths, hubs=hubs)
