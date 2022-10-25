@@ -1,3 +1,4 @@
+from cmath import nan
 import ghhops_server as hs
 import rhino3dm as r3d
 import prog_place.helpers as h
@@ -7,12 +8,19 @@ import copy
 
 #see app.py file for description of each gh node and more specific information regarding the inputs and outputs
 
-def divide_site(site: r3d.Surface, road_lines_tree, sidewalk_lines_tree, grid_size: float):
+def divide_site(site: r3d.Surface, road_lines_tree, sidewalk_lines_tree, grid_size: float, context, sun_hours):
     sidewalk_lines: list[r3d.Line] = sidewalk_lines_tree['{0}']
     road_lines: list[r3d.Line] = road_lines_tree['{0}']
+    context_matrix = np.array(h.tree_to_matrix(context))
+    sun_hours_matrix = np.array(h.tree_to_matrix(sun_hours))
+    
+    nearby_buildings = context_matrix[0]
+    landmarks = context_matrix[1]
+    views = context_matrix[2]
 
     srfpts = []
     values = []
+    values_floats = []
     
     srf_u_start = int(site.Domain(0).T0)
     srf_u_end = int(site.Domain(0).T1)
@@ -21,14 +29,19 @@ def divide_site(site: r3d.Surface, road_lines_tree, sidewalk_lines_tree, grid_si
 
     srf_btm_left_corner = site.PointAt(srf_u_start, srf_v_start)
 
-    print('pre-loop')
-
-    for y in range(srf_v_end, srf_v_start-int(grid_size),  -int(grid_size)):
+    ### cost function includes: road distance, sidewalk distance, sun hours, nearby buildings, distance to landmark, distance to view
+    for y in range(srf_v_end, srf_v_start-int(grid_size), -int(grid_size)):
         rowpts = []
         rowpts_vals = []
+        rowpts_floats = []
         for x in range(srf_u_start, srf_u_end+int(grid_size), int(grid_size)):
             road_weight = m.inf
             sidewalk_weight = m.inf
+            sun_hours = m.inf
+            nearby_buildings_weight = m.inf
+            landmarks_weight = m.inf
+            views_weight = m.inf
+
             point = r3d.Point3d(site.PointAt(x,y).X,site.PointAt(x,y).Y,0)
             rowpts.append(point)
 
@@ -36,16 +49,44 @@ def divide_site(site: r3d.Surface, road_lines_tree, sidewalk_lines_tree, grid_si
                 new_road_weight = h.line_closest_point(r, point)
                 if new_road_weight < road_weight:
                     road_weight = new_road_weight    
-
+            
             for s in sidewalk_lines:
                 new_sidewalk_weight = h.line_closest_point(s, point)
                 if new_sidewalk_weight < sidewalk_weight:
                     sidewalk_weight = new_sidewalk_weight
-                        
-            rowpts_vals.append('{0},{1}'.format(road_weight, sidewalk_weight))
+            
+            sun_weight = sun_hours_matrix[x][y]
+
+            for b in nearby_buildings:
+                new_nearby_buildings_weight = b.DistanceTo(point)
+                if new_nearby_buildings_weight < nearby_buildings_weight:
+                    nearby_buildings_weight = new_nearby_buildings_weight
+            
+            for l in landmarks:
+                new_landmarks_weight = l.DistanceTo(point)
+                if new_landmarks_weight < landmarks_weight:
+                    landmarks_weight = new_landmarks_weight
+            
+            for v in views:
+                new_views_weight = v.DistanceTo(point)
+                if new_views_weight < views_weight:
+                    views_weight = new_views_weight
+
+            rowpts_floats.append([road_weight, sidewalk_weight, sun_weight, nearby_buildings_weight, landmarks_weight, views_weight])           
+            rowpts_vals.append('{0},{1},{2},{3},{4},{5}'.format(road_weight, sidewalk_weight, sun_weight, nearby_buildings_weight, landmarks_weight, views_weight))
         srfpts.append(rowpts)
         values.append(rowpts_vals)
+        values_floats.append(rowpts_floats)
     
+    values_floats_normalized = h.normalize_weight(values_floats)
+
+    values_normalized = []
+    for row in values_floats_normalized:
+        row_norm = []
+        for cost in row:
+            row_norm.append('{0},{1},{2},{3},{4},{5}'.format(cost[0], cost[1], cost[2], cost[3], cost[4], cost[5]))
+        values_normalized.append(row_norm)
+
     label_array_np = np.full_like(np.array(srfpts), 's', str)
 
     site_grid, site_edge  = h.divide_surface(site, grid_size)
@@ -58,9 +99,15 @@ def divide_site(site: r3d.Surface, road_lines_tree, sidewalk_lines_tree, grid_si
                 else:
                     continue
     
-    return h.list_to_tree(srfpts), h.list_to_tree(values), h.list_to_tree(label_array_np.tolist())
+    return h.list_to_tree(srfpts), h.list_to_tree(values_normalized), h.list_to_tree(label_array_np.tolist())
 
-def place_packages(srfpts_tree, cost_function_tree, labels_tree, module_use, module_geometry: r3d.Surface, module_mask):
+def place_packages(srfpts_tree, cost_function_tree, labels_tree, module_use, module_geometry: r3d.Surface, module_mask, door):
+    ### convert door locations to points
+    door_points = []
+    door_floats = [float(v) for v in door.split(',')]
+
+    for j in range(0, len(door_floats), 2):
+            door_points.append(r3d.Point3d(door_floats[j], door_floats[j+1], 0))
 
     ### width and height of packages module
     point1 = module_geometry.PointAt(int(module_geometry.Domain(0).T0), int(module_geometry.Domain(1).T0))
@@ -85,17 +132,37 @@ def place_packages(srfpts_tree, cost_function_tree, labels_tree, module_use, mod
     ### e - site edge
     ### b - boundary
     ### i - interior
-    ### x - outside of site edge
+    ### o - outside of site edge
+    ### x - door
     label_array_np = np.array(h.tree_to_matrix(labels_tree))
 
     ### convert module cost function information from strings to np array 
-    module_mask_np = np.array([int(v) for v in module_mask.split(',')])
+    module_mask_np = np.array([float(v) for v in module_mask.split(',')])
+
+    for i, val in enumerate(module_mask_np):
+        if val == 0:
+            module_mask_np[i] = m.inf
+
+    module_mask_expanded = copy.deepcopy(cost_function_matrix)
+    for i, row in enumerate(cost_function_matrix):
+        for j, _ in enumerate(row):
+            module_mask_expanded[i][j] = module_mask_np
 
     ### mask cost function with module parameters
-    module_masked_cost = np.dot(np.array(cost_function_matrix), module_mask_np)
+    module_masked_cost = copy.deepcopy(cost_function_matrix)
+    num_weights = len(cost_function_matrix[0][0])
+    for num in range(num_weights):
+        for i, row in enumerate(cost_function_matrix):
+            for j, weights in enumerate(row):
+                if module_mask_expanded[i][j][num] == -1.:
+                    module_masked_cost[i][j][num] = m.pow(weights[num], module_mask_expanded[i][j][num])
+                else:
+                    if weights[num] < 1 and module_mask_expanded[i][j][num] == m.inf:
+                        module_masked_cost[i][j][num] = m.inf
+                    else:
+                        module_masked_cost[i][j][num] = weights[num] * module_mask_expanded[i][j][num]
 
     ### remove locations that place packages module outside of the site area
-    ### TODO: update to incorporate rotations 0, 90, 180, 270 deg confirm mask is correct for each rotation
     min_cost_value = []
     masked_cost_placement_zerodeg = np.copy(module_masked_cost)
     masked_cost_placement_zerodeg[width:, :] = m.inf
@@ -136,6 +203,12 @@ def place_packages(srfpts_tree, cost_function_tree, labels_tree, module_use, mod
     success_rot = module_geometry.Rotate(rotation, axis, tp_left)
     rotation_transform = r3d.Transform.Rotation(rotation, axis, tp_left)
     print('rotate packages module?', success_rot)
+        
+    ### rotate door location
+    for i, d in enumerate(door_points):
+        rotated_x, rotated_y = h.rotate_point(tp_left, d, rotation)
+        door_points[i] = r3d.Point3d(rotated_x, rotated_y, 0)
+        print('rotated packages module doors')
 
     rot_mat_flat = r3d.Transform.ToFloatArray(rotation_transform, True)
     rot_mat = np.asarray(rot_mat_flat).reshape(4, 4)
@@ -146,6 +219,11 @@ def place_packages(srfpts_tree, cost_function_tree, labels_tree, module_use, mod
     move_vector = h.vector3d_2pts(move_from, top_left_corner)
     success_move = module_geometry.Translate(move_vector)
     print('moved packages module?', success_move)
+
+                ### move door location
+    for i, d in enumerate(door_points):
+        door_points[i] = r3d.Point3d(d.X + move_vector.X, d.Y + move_vector.Y, 0)
+        print('moved packages module doors')
 
     module_grid, module_edge  = h.divide_surface(module_geometry, grid_size)
     module_grid_np = np.array(module_grid)
@@ -161,38 +239,101 @@ def place_packages(srfpts_tree, cost_function_tree, labels_tree, module_use, mod
                         label_array_np[row][column1] = 'i'
                     else:
                         continue
-    
+ 
     label_array_np = h.update_label(label_array_np, srfpts_matrix, module_edge, 'b')
+
+    for row, list in enumerate(srfpts_matrix):
+        for column1, pt1 in enumerate(list):
+            for d in door_points:
+                distance = abs(m.dist((pt1.X, pt1.Y, pt1.Z), (d.X, d.Y, d.Z)))
+                if distance < 0.05:
+                    label_array_np[row][column1] = 'x'
 
     label_array = label_array_np.tolist()
 
     return module_geometry, h.list_to_tree(h.matrix_floats2str(out_cost_function_matrix)), module_edge, h.list_to_tree(label_array)
 
-def place_modules(srfpts_tree, cost_function_tree, label_array, module_use_tree, module_geometry_list, module_mask_tree):
+def place_modules(srfpts_tree, cost_function_tree, label_array, module_use_tree, module_geometry_list, module_mask_tree, door_tree):
     ### convert cost function and srf points information from gh trees to np array
     srfpts_matrix = np.array(h.tree_to_matrix(srfpts_tree))
     grid_size = abs(srfpts_matrix[0,0].X - srfpts_matrix[0,1].X)
     module_mask_matrix = h.tree_to_matrix(module_mask_tree)
     cost_function_matrix = h.matrix_str2floats(h.tree_to_matrix(cost_function_tree))
     label_array_matrix = np.array(h.tree_to_matrix(label_array))
+    module_use = h.tree_to_list(module_use_tree)
+
+    door_array = h.matrix_str2floats(h.tree_to_matrix(door_tree))
+    ### convert door locations to points
+    door_points = []
+    for i in range(len(door_array)):
+        if door_array[i] == None:
+            door_points.append([None])
+        else:
+            points = []
+            for j in range(0, len(door_array[i][0]), 2):
+                points.append(r3d.Point3d(door_array[i][0][j], door_array[i][0][j+1], 0))
+            door_points.append(points)
 
     ### convert module cost function information from strings to np array 
     module_mask_np = []
+    module_masked_cost_all = []
 
-    for i in module_mask_matrix:
-        module_mask_np.append(np.array([int(v) for v in i[0].split(',')]))
+    for i, item in enumerate(module_mask_matrix):
+        mask = [float(v) for v in item[0].split(',')]
 
-    ### mask cost function with module parameters
-    module_masked_cost = []
-    for i, row in enumerate(module_mask_matrix):
-        module_masked_cost.append(np.dot(np.array(cost_function_matrix), module_mask_np[i]))
+        for j, val in enumerate(mask):
+            if val == 0:
+                mask[j] = m.inf
+
+        module_mask_np.append(mask)
+
+        module_mask_expanded = copy.deepcopy(cost_function_matrix)
+        for k, row in enumerate(cost_function_matrix):
+            for l, _ in enumerate(row):
+                module_mask_expanded[k][l] = mask
+
+        ### mask cost function with module parameters
+        module_masked_cost = copy.deepcopy(cost_function_matrix)
+        num_weights = len(cost_function_matrix[0][0])
+        for num in range(num_weights):
+            for k, row in enumerate(cost_function_matrix):
+                for l, weights in enumerate(row):
+                    if module_mask_expanded[k][l][num] == -1.:
+                        if weights[num] == 0:
+                            module_masked_cost[k][l][num] = m.inf
+                        else:
+                            module_masked_cost[k][l][num] = m.pow(weights[num], module_mask_expanded[i][j][num])
+                    else:
+                        if weights[num] < 1 and module_mask_expanded[k][l][num] == m.inf:
+                            module_masked_cost[k][l][num] = m.inf
+                        else:
+                            module_masked_cost[k][l][num] = weights[num] * module_mask_expanded[i][j][num]
+        module_masked_cost_all.append(module_masked_cost)
+
+    combined_module_masked_cost_all = copy.deepcopy(module_masked_cost_all)
+    for num, matrix in enumerate(module_masked_cost_all):
+        for i, row in enumerate(matrix):
+            for j, weights in enumerate(row):
+                print(weights)
+                total_weight = 0
+                for weight in weights:
+                    #print('weight', weight)
+                    if weight != m.inf:
+                        total_weight += weight
+                #print('total weight', total_weight)
+                if total_weight == 0:
+                    combined_module_masked_cost_all[num][i][j] = m.inf
+                else:
+                    combined_module_masked_cost_all[num][i][j] = total_weight
 
     label_array_matrix_revised = copy.deepcopy(label_array_matrix)
 
     out_module_edges = []
+    
     #place each module, update label array,
     for num, geo in enumerate(module_geometry_list):
-        use_cost_function_matrix = copy.deepcopy(module_masked_cost[num])
+        print('placing module ',  module_use[num])
+        use_cost_function_matrix = copy.deepcopy(combined_module_masked_cost_all[num])
 
         for i, row in enumerate(label_array_matrix):
             for j, label in enumerate(row):
@@ -205,7 +346,9 @@ def place_modules(srfpts_tree, cost_function_tree, label_array, module_use_tree,
             for j, cost in enumerate(row):
                 if cost != m.inf:
                     values_to_order.append(cost)
-                    points_to_order.append(srfpts_matrix[i,j])
+                    points_to_order.append(srfpts_matrix[i][j])
+                else:
+                    continue
 
         ### order best locations in order best to worst 
         values_ordered = np.array(values_to_order)
@@ -223,12 +366,11 @@ def place_modules(srfpts_tree, cost_function_tree, label_array, module_use_tree,
             #move geometry to point
             move_vector = h.vector3d_2pts(tp_left, corner)
             success_move = geo.Translate(move_vector)
-            print('move module first time?', success_move)
             
             _, mvd_tp_left, _, _, _ = h.corners(geo)
 
+            rotation_count = 0
             for j in range(4):
-                
                 _, _, _, _, corners_list = h.corners(geo)
                 corner_locations = h.location_closest_grid_point(srfpts_matrix, corners_list)
 
@@ -241,14 +383,29 @@ def place_modules(srfpts_tree, cost_function_tree, label_array, module_use_tree,
 
                 corner_labels_np = np.array(corner_labels)
 
+                _, edges = h.divide_surface(geo, grid_size)
+
+                edge_labels = []
+                for point in edges:
+                    if point != None:
+                        edge_labels.append(label_array_matrix_revised[round(point.X), round(point.Y)])
+                    else:
+                        edge_labels.append(None)
+                edge_labels_np = np.array(edge_labels)
+
                 if (np.isin('i', corner_labels_np) or
+                    np.isin('o', corner_labels_np) or
                     np.isin('x', corner_labels_np) or
                     np.isin(None, corner_labels_np) or
-                    np.count_nonzero(corner_labels_np == 'b') < 2
+                    np.count_nonzero(corner_labels_np == 'b') < 2 or
+                    np.isin('x', edge_labels_np) or
+                    np.count_nonzero(edge_labels_np == 'b') == len(edge_labels_np) or
+                    (np.count_nonzero(edge_labels_np == 'b') + np.count_nonzero(edge_labels_np == 'i')) == len(edge_labels_np)
                 ):
                     
                     axis = h.vector3d_2pts(mvd_tp_left, r3d.Point3d(mvd_tp_left.X, mvd_tp_left.Y, 10))
                     success_rot = geo.Rotate(m.pi / 2., axis, mvd_tp_left)
+                    rotation_count +=1
                     # print('rotate module?', success_rot)
                 else:
                     valid_placement = True
@@ -256,12 +413,32 @@ def place_modules(srfpts_tree, cost_function_tree, label_array, module_use_tree,
                     break
                     
             if valid_placement:
+                corner_rot_point = mvd_tp_left
+                rotation_degree = rotation_count * (m.pi / 2.)
+                move_amount = move_vector
                 break
 
             print("no valid position for this module at this location")
         
         if not valid_placement:
             print("no valid position for this module")
+        
+        ### move door location
+        for i, d in enumerate(door_points[num]):
+            if d == None:
+                break
+            else:
+                door_points[num][i] = r3d.Point3d(d.X + move_amount.X, d.Y + move_amount.Y, 0)
+                print('moved module doors')
+        
+        ### rotate door location
+        for i, d in enumerate(door_points[num]):
+            if d == None:
+                break
+            else:
+                rotated_x, rotated_y = h.rotate_point(corner_rot_point, d, rotation_degree)
+                door_points[num][i] = r3d.Point3d(rotated_x, rotated_y, 0)
+                print('rotated module doors')
 
         module_grid, module_edge  = h.divide_surface(geo, grid_size)
         ### list of module edges to output
@@ -270,10 +447,40 @@ def place_modules(srfpts_tree, cost_function_tree, label_array, module_use_tree,
         ### update label array matrix
         label_array_matrix_revised = h.update_label(label_array_matrix_revised, srfpts_matrix, module_edge, 'b')
         label_array_matrix_revised = h.update_label(label_array_matrix_revised, srfpts_matrix, module_grid, 'i')
+        if door_points[num][0] != None and door_points[num] != None:
+            label_array_matrix_revised = h.update_label(label_array_matrix_revised, srfpts_matrix, door_points[num], 'x')
         ### check if diagonal of each b contains at least one 's' if yes, it is still a boundary, if no, then it becomes an 'i'
         label_array_matrix_revised = h.convert_interior_boundaries(label_array_matrix_revised)
 
-        print(label_array_matrix_revised)
-
     #return "surface", [excluded] "cost", "module edges", "label"
     return module_geometry_list, h.list_to_tree(out_module_edges), h.list_to_tree(label_array_matrix_revised.tolist())
+
+def labelstopoints(srfpts_tree, label_array):
+    srfpts_matrix = np.array(h.tree_to_matrix(srfpts_tree))
+    label_array_matrix = np.array(h.tree_to_matrix(label_array))
+
+    points_site = []
+    points_edges = []
+    points_boundary = []
+    points_interior = []
+    points_doors = []
+    points_outside_site = []
+
+    for i, row in enumerate(label_array_matrix):
+        for j, label in enumerate(row):
+            if label == 's':
+                points_site.append(srfpts_matrix[i, j])
+            if label == 'e':
+                points_edges.append(srfpts_matrix[i, j])
+            if label == 'b':
+                points_boundary.append(srfpts_matrix[i, j])
+            if label == 'i':
+                points_interior.append(srfpts_matrix[i, j])
+            if label == 'x':
+                points_doors.append(srfpts_matrix[i, j])
+            if label == 'o':
+                points_outside_site.append(srfpts_matrix[i, j])
+            else:
+                continue
+
+    return points_site, points_edges, points_boundary, points_interior, points_doors, points_outside_site

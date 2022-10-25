@@ -1,3 +1,4 @@
+import enum
 from math import sqrt
 from types import NoneType
 from typing import Dict, List
@@ -37,8 +38,11 @@ def tree_to_list(tree: Dict[str, List[str]]):
 def matrix_str2floats(matrix: List[List[str]]):
     out = copy.deepcopy(matrix)
     for i in range(len(matrix)):
-        for j in range(len(matrix[i])):
-            out[i][j] = [float(v) for v in matrix[i][j].split(',')]
+        if matrix[i][0] == 'None' or matrix[i][0] == None or matrix[i] == 'None' or matrix[i] == None:
+            out[i] = None
+        else: 
+            for j in range(len(matrix[i])):
+                out[i][j] = [float(v) for v in matrix[i][j].split(',')]
     return out
 
 def matrix_floats2str(matrix: List[List[float]]):
@@ -172,3 +176,34 @@ def convert_interior_boundaries(arr_base: np.ndarray):
     arr_updated_mask = np.where(arr_interior_mask == 1, 'i', arr_base)
 
     return arr_base
+
+def rotate_point(origin, point, angle):
+    origin_x = origin.X
+    origin_y = origin.Y
+    point_x = point.X
+    point_y = point.Y
+
+    rotated_x = round(origin_x + m.cos(angle) * (point_x - origin_x) - m.sin(angle) * (point_y - origin_y))
+    rotated_y = round(origin_y + m.sin(angle) * (point_x - origin_x) + m.cos(angle) * (point_y - origin_y))
+    return rotated_x, rotated_y
+
+def normalize_weight(weights):
+    norm_weights = copy.deepcopy(weights)
+    min_value = m.inf
+    max_value = 0
+    num_weights = len(weights[0][0])
+
+    for num in range(num_weights):
+        for row in weights:
+            for costs in row:
+                if costs[num] < min_value:
+                    min_value = costs[num]
+                if costs[num] > max_value:
+                    max_value = costs[num]
+        
+        for i, row in enumerate(weights):
+            for j, costs in enumerate(row):
+                normalized_weight = (costs[num] - min_value) / (max_value-min_value)
+                norm_weights[i][j][num] = normalized_weight
+
+    return norm_weights

@@ -139,6 +139,15 @@ class NetworkClustering():
         #print(coordinateX_min, coordinateX_max, coordinateY_min, coordinateY_max)
 
         index = len(self.hub_list_dictionary)+1
+        
+        #k-means ++
+        # for i in range(start_pt_ct):
+        #     step_avg.append([list(ci[0])])
+        #     init_list.pop(sel_int[0])
+        #     dist_list_dim = ds.cdist(ci, dataset[init_list])**2
+        #     dist_list = dist_list_dim[0] / np.sum(dist_list_dim[0])
+        #     sel_int = np.random.choice(init_list, 1, p=dist_list)
+        #     ci = [dataset[sel_int[0]]]
 
         for i in range(start_pt_ct):
             x = random.uniform(coordinateX_min, coordinateX_max)

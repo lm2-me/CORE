@@ -22,6 +22,7 @@ import random
 
 import utils.network_helpers as h
 import utils.visualizations as v
+import matplotlib.pyplot as plt
 from re import X
 from network_delft import CityNetwork, timer_decorator
 from clustering import NetworkClustering
@@ -106,7 +107,8 @@ def main():
     ### Delft City Center #coordinates = [52.018347, 52.005217, 4.369142, 4.350504]
     ### Delft #coordinates = [52.03, 51.96, 4.4, 4.3]
     #[N, S, E, W] coordiantes of location to analyse
-    coordinates = [52.018347, 52.005217, 4.369142, 4.350504]
+    #coordinates = [52.018347, 52.005217, 4.369142, 4.350504]
+    coordinates = [52.03, 51.96, 4.4, 4.3]
 
     start_pt_ct = 3 # number of starting hubs
     calc_euclid = False #also calculate euclidean distances for first iteration?

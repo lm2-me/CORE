@@ -41,7 +41,7 @@ def main():
     # Delft City center: [52.018347, 52.005217, 4.369142, 4.350504]
     # Delft: [52.03, 51.96, 4.4, 4.3]
     # Rotterdam center (control): [51.926366, 51.909002, 4.48460, 4.455496]
-    coordinates = [52.018347, 52.005217, 4.369142, 4.350504]
+    coordinates = [52.03, 51.96, 4.4, 4.3]
 
 
     ''' --- GENERATE NETWORK ---
@@ -150,7 +150,7 @@ def main():
     # already has nearest edges stored, it skips the computation.
     # Number in input indicating the interpolation distance in meters
     print('Finding origin and destination edges...')
-    edges = City.nearest_edges(x, y, 5, cpus=None)
+    edges = City.nearest_edges([x, y, 5], cpus=None)
 
     # Save graph with edges, proceed carefully:
     City.save_graph(name, data_folder)
@@ -202,7 +202,7 @@ def main():
     
     If you need different color and size settings for the plot, change them in the CityNetwork class (on top of class code)'''
     fig, ax = City.plot(routes=paths, origins=orig_yx_transf, destinations=dest_yx_transf, annotations='name', save=True)
-    # plt.show()
+    plt.show()
     
     return
 
