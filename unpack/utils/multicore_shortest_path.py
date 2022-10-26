@@ -29,20 +29,22 @@ import time
     >>> The shortest paths can now be calculated using multicore
     processing. For this the code OSMnx by gboeing was implemented.
     >>> Different shortest path algorithms can now be used, such as
-    astar, dijkstra, bellman-ford.
+    astar, dijkstra, bellman-ford and single cource computations.
     >>> A specific weight can be used to calculate shortest paths,
     instead of only 'length', such as 'travel_time' or 'experience'.
     >>> The nearest_edge calculation has been moved to another
-    function and optimized.
+    function and optimized for multicore processing.
     >>> The code of Taxicab contains multiple bugs related to exceptional
-    cases for short routes. This package solves that issue.
+    cases for short routes. This package solves those issues.
     >>> The multicore computations share a list variable in memory, called
     path_weights, which allows for skipping paths if a shorter path was
-    already found by this or another cpu core computation.
+    already found by this or another cpu core computation, sometimes tripling
+    the efficiency of the algorithm.
     >>> Adds support for multicore single source Dijkstra calculations
     with cutoff values.
     >>> Convert the shortest path results to a Dataframe.
-    >>> Multiple upgrades to improve speed performance.
+    >>> Multiple implicit upgrades to improve speed performance, such as
+    preprocessing partial edge computations instead of on runtime.
 '''
 
 # Calculate the total weight of the path, including partial edges

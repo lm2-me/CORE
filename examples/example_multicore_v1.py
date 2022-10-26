@@ -44,63 +44,64 @@ def main():
     coordinates = [52.03, 51.96, 4.4, 4.3]
 
 
-    ''' --- GENERATE NETWORK ---
-    Generate a new network using the functions in the CityNetwork class. If a network already has been generated and stored in the data folder, comment this part and continue with PREPARE NETWORK. '''
+    # ''' --- GENERATE NETWORK ---
+    # Generate a new network using the functions in the CityNetwork class. If a network already has been generated and stored in the data folder, comment this part and continue with PREPARE NETWORK. '''
 
-    # Initialize CityNetwork object [N, S, E, W]
-    City = CityNetwork(name, coordinates, vehicle_type)
+    # # Initialize CityNetwork object [N, S, E, W]
+    # City = CityNetwork(name, coordinates, vehicle_type)
     
-    # Load osm from local or online file
-    City.load_osm_graph(data_folder + name + '.osm')
-    City.load_building_addr(data_folder + name + '_building_addresses.csv', 
-        data_folder + name + '_buildings.csv', 
-        data_folder + name + '_addresses.csv',
-        data_folder +'runtime/'+ name + '_cbs.xml')
+    # # Load osm from local or online file
+    # City.load_osm_graph(data_folder + name + '.osm')
+    # City.load_building_addr(data_folder + name + '_building_addresses.csv', 
+    #     data_folder + name + '_buildings.csv', 
+    #     data_folder + name + '_addresses.csv',
+    #     data_folder +'runtime/'+ name + '_cbs.xml')
     
-    print(City.building_addr_df)
+    # print(City.building_addr_df)
 
-    # Add speeds, lengths and distances to graph
-    # Overwrite speed by using overwrite_bike=16
-    # Further types available: overwrite_walk and overwrite_epv
-    City.add_rel_attributes(overwrite_bike=16, overwrite_walk=5)
+    # # Add speeds, lengths and distances to graph
+    # # Overwrite speed by using overwrite_bike=16
+    # # Further types available: overwrite_walk and overwrite_epv
+    # City.add_rel_attributes(overwrite_bike=16, overwrite_walk=5)
 
-    # Add an experience attribute to the graph, inputs are
-    # edges: list with edges to overwrite
-    # factors: list of factors between 0 and float(inf), lower is better
+    # # Add an experience attribute to the graph, inputs are
+    # # edges: list with edges to overwrite
+    # # factors: list of factors between 0 and float(inf), lower is better
 
-    # Project graph
-    City.project_graph()
+    # # Project graph
+    # City.project_graph()
 
-    ''' EXAMPLE HIGHLIGHTS WITH EXPERIENCE
-    Assign bonus or penalty to the Oude Delft 
-    > 1 is bonus
-    < 1 is penalty
+    # ''' EXAMPLE HIGHLIGHTS WITH EXPERIENCE
+    # Assign bonus or penalty to the Oude Delft 
+    # > 1 is bonus
+    # < 1 is penalty
 
-    Function takes as input: name/coordinate_tuple, factor
-    City.add_street_experience(['Oude Delft'], [10])
-    OR
-    City.add_coord_experience([(latitude, longitude)], [10])
-    '''
+    # Function takes as input: name/coordinate_tuple, factor
+    # City.add_street_experience(['Oude Delft'], [10])
+    # OR
+    # City.add_coord_experience([(latitude, longitude)], [10])
+    # '''
 
-    # Plot the CityNetwork
-    # City.plot()
+    # # Plot the CityNetwork
+    # # City.plot()
 
-    # Calculate dataframes of nodes and edges
-    City.convert_graph_edges_to_df()
-    City.convert_graph_nodes_to_df()
+    # # Calculate dataframes of nodes and edges
+    # City.convert_graph_edges_to_df()
+    # City.convert_graph_nodes_to_df()
 
-    # Save graph edges to file
-    #  City.graph_edges_df.to_csv('data/test.csv')
+    # # Save graph edges to file
+    # #  City.graph_edges_df.to_csv('data/test.csv')
 
-    # Save Pickle file
-    City.save_graph(name, data_folder)
-    print('------------------------------------') 
+    # # Save Pickle file
+    # City.save_graph(name, data_folder)
+    # print('------------------------------------') 
 
 
     ''' --- PREPARE NETWORK ---
     Load the network from .pkl file. Transform the origin and destination to the unprojected space.'''
     # Load the CityNetwork class object
-    # City = CityNetwork.load_graph(name, data_folder)
+    City = CityNetwork.load_graph('Rotterdam', data_folder)
+    City.plot(show=True)
 
     # Specify the coordinates for origin and destination
     # Get the coordinates from building dataframe   

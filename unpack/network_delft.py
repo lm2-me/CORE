@@ -191,8 +191,7 @@ class CityNetwork():
                         pass
                 
                 if error == len(self.url):
-                    print("The request is currently unable to gather Overpass data, please retry manually in 30 seconds")
-                    exit()
+                    raise RuntimeError("The request is currently unable to gather Overpass data, please retry manually in 30 seconds")
             
             # Load the building and adress data from csv
             addr_frame =  load_csv(adress_path)
@@ -772,6 +771,11 @@ class CityNetwork():
         fig, ax = ox.plot._save_and_show(fig, ax, show=show)
 
         if save:
+            path = 'data/plot_pngs'
+            
+            if not os.path.isdir(path):
+                os.mkdir(path)
+            
             if fig_name == None:
                 fig.savefig(f'data/plot_pngs/plot_{time.time()}.png', format='png', dpi=dpi)
             else:
