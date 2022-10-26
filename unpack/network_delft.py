@@ -771,6 +771,11 @@ class CityNetwork():
         fig, ax = ox.plot._save_and_show(fig, ax, show=show)
 
         if save:
+            path = 'data/plot_pngs'
+            
+            if not os.path.isdir(path):
+                os.mkdir(path)
+            
             if fig_name == None:
                 fig.savefig(f'data/plot_pngs/plot_{time.time()}.png', format='png', dpi=dpi)
             else:

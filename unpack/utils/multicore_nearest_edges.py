@@ -128,7 +128,7 @@ def multicore_nearest_edge(graph, X, Y, interpolate, cpus=1):
     points. This method is precise and also fastest if searching for few
     points relative to the graph's size.
     
-    Developed by Job de Vogel (parts by gboeing)
+    Developed by Job de Vogel (parts by gboeing and Nathan Rooy)
 
     Parameters
     ----------
