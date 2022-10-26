@@ -42,12 +42,13 @@ def visualize_clusters(City, Clusters, text, hub_colors, save=False):
             color=color_to_use, marker='o', s=100, label=current_label)
 
     for i, row in Clusters.hub_assignments_df.T.items():
-        if row['nearesthub'] == 'None':
+        if row['Nearest_hub_name'] == 'None':
             color_to_use = 'white'
-        elif row['path_not_found']:
+        elif row['Path_not_found']:
             color_to_use = 'lime'
         else:
-            color_to_use = hub_colors_dict[row['nearesthub']]
+            print(row['Nearest_hub_name'])
+            color_to_use = hub_colors_dict[row['Nearest_hub_name']]
 
         current_label = hub_name
         ax.scatter(City.building_addr_df.iloc[i]['x'], City.building_addr_df.iloc[i]['y'],
@@ -85,7 +86,7 @@ def euclid_visualize_clusters(City, Clusters, text, hub_colors, save=False):
             color=color_to_use, marker='o', s=100, label=current_label)
 
     for i, row in Clusters.hub_assignments_df.T.items():
-        color_to_use = hub_colors_dict[row['euclid_nearesthub']]
+        color_to_use = hub_colors_dict[row['Euclid_nearesthub']]
         current_label = hub_name
         ax.scatter(City.building_addr_df.iloc[i]['x'], City.building_addr_df.iloc[i]['y'],
                     color=color_to_use, marker='o', s=5, label=current_label) 

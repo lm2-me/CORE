@@ -21,7 +21,6 @@ Functions:
 import numpy as np
 
 from re import X
-from utils.multicore_nearest_edges import multicore_nearest_edge
 
 ### convert city coordinates into a tupple
 def coordinates_to_tupple(coordinates):
@@ -54,35 +53,9 @@ def get_manhattan_distance(hub_yx_value, house_yx_value):
     
     return manhattan_dist 
 
-### find the nearest network edges for all building locations
-def nearest_edges_buildings(City, orig_yx_transf, name, data_folder, cpu_count):
-    x = []
-    y = []
-
-    for orig_yx in orig_yx_transf:
-        x.append(orig_yx[1])
-        y.append(orig_yx[0])
-    
-    edges = City.nearest_edges(x, y, 5, cpus=cpu_count)
-    City.save_graph(name, data_folder)
-    orig_edge = edges
-    #print('orig_edge', orig_edge)
-    return orig_edge
-
-### find the nearest network edges for all hub locations
-def nearest_edges_hubs(City, hub_yx_transf, cpu_count):
-    x = []
-    y = []
-
-    for hub in hub_yx_transf:
-        x.append(hub[1])
-        y.append(hub[0])
-    
-    edges, _ = multicore_nearest_edge(City.graph, x, y, City.interpolation, cpus=cpu_count)
-    #print(f"edge: {edges}")
-    return edges
 
 ### get the yx transform values from the dictionary containing hub locations
+### used to get the euclidean distance
 def get_yx_transf_from_dict(hub_dictionary):
 
     label_list = []
@@ -96,10 +69,11 @@ def get_yx_transf_from_dict(hub_dictionary):
 
     return label_list, value_list
 
-### from a combined list of distance to all hubs, get the sublists for each hub
-def get_sublists(list, sublist_number):
-    sub_list_length = len(list) // sublist_number
-    list_of_sublists = []
-    for i in range(0, len(list), sub_list_length):
-        list_of_sublists.append(list[i:i+sub_list_length])
-    return list_of_sublists
+###!NOTE: May not need
+# ### from a combined list of distance to all hubs, get the sublists for each hub
+# def get_sublists(list, sublist_number):
+#     sub_list_length = len(list) // sublist_number
+#     list_of_sublists = []
+#     for i in range(0, len(list), sub_list_length):
+#         list_of_sublists.append(list[i:i+sub_list_length])
+#     return list_of_sublists

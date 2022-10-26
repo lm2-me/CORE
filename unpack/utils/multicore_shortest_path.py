@@ -825,7 +825,7 @@ def multicore_shortest_path(graph, orig, dest, orig_edge, dest_edge, method='dij
     else:  # pragma: no cover
         raise ValueError("Please check shortest path inputs.")
 
-def multicore_single_source_shortest_path(graph, orig, dest, dest_edges, skip_non_shortest=False, skip_treshold=None, method='dijkstra', weight='travel_time', cutoff=None, cpus=1):
+def multicore_single_source_shortest_path(graph, orig_dictionary, dest, dest_edges, skip_non_shortest=False, skip_treshold=None, method='dijkstra', weight='travel_time', cutoff=None, cpus=1):
     """ Compute all shortest paths from multiple origins, considering
     a cutoff value and using multiple cores.
 
@@ -891,6 +891,21 @@ def multicore_single_source_shortest_path(graph, orig, dest, dest_edges, skip_no
     dest_partial_edge
         The Linestring at the destination of the path.
     """
+    #! PLEASE FIX
+    #@Job please ensure input is the hub_dictionary (I renamed the parameter to orig_dictionary), 
+    # please retreive the y,x coordinates from the dictionary and when you save the hub information to the DF, please read
+    # 'index' from the dictionary for the numerical index and use the key of the dictionary as the hub name
+    # see clustering.py lines 168 to 178 for how the information is stored in the dictionary when a new hub location is generated
+    
+    # example for how to unpack the values from the dictionary
+    label_list = []
+    orig = []
+    for (hub_name, hub_info) in orig_dictionary.items():
+        
+        label_list.append(hub_name)
+        orig.append(
+            (hub_info['y'], hub_info['x'])
+        )
 
     # Check the format of orig and change to list
     if isinstance(orig, tuple):
@@ -914,7 +929,7 @@ def multicore_single_source_shortest_path(graph, orig, dest, dest_edges, skip_no
     elif isinstance(dest_edges, list):
         pass
     else:
-        raise TypeError('Dest should be list, or single tuple.')
+        raise TypeError('Dest_edges should be list, or single tuple.')
 
     y_orig, x_orig = list(map(list, zip(*orig)))
     orig_edges = ox.nearest_edges(graph, x_orig, y_orig)
@@ -1036,10 +1051,20 @@ def paths_to_dataframe(paths, hubs=None):
     
     closest_paths = [list(paths.values())[hub_idx][num] if hub_idx != None else None for num, hub_idx in enumerate(closest_hubs)]
 
+    #! PLEASE FIX
+    #@Job please ensure that the data the DF is saving is coming from the hub_dictionary, 
+    # please retreive the 'Nearest_hub_idx' from 'index' from the dictionary  (the numerical index) and use the 
+    # key of the dictionary as the hub name
+    # see clustering.py lines 168 to 178 for how the information is stored in the dictionary when a new hub location is generated
+
+    #!Nearest_hub_idf needs to get the hub index from the dictionary
     df['Nearest_hub_idx'] = closest_hubs
-    df['Nearest_hub_name'] = [str(f"hub_{i + 1}") if i != None else None for i in closest_hubs]
+    #!Nearest_hub_name needs to get the hub name from the dictionary
+    df['Nearest_hub_name'] = [str(f"hub_{i + 1}" if i != None else None for i in closest_hubs]
     df['Weight'] = [data[0] if data != None else None for data in closest_paths]
     df['Path_not_found'] = [True if hub == None else False for hub in closest_hubs]
+    df['Euclid_nearesthub'] = [str(f"hub_{i + 1}") if i != None else None for i in closest_hubs]
+    df['Euclid_hubdistance'] = [data[0] if data != None else None for data in closest_paths]
     
     if hubs != None:
         df['hub_x'] = [hubs[i][1] if i != None else None for i in closest_hubs]

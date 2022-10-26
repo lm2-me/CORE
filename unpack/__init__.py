@@ -13,6 +13,9 @@ from unpack.utils.utils.timer import *
 from unpack.utils.utils import transform_coordinates
 from unpack.utils.utils.transform_coordinates import *
 
+from unpack.utils import network_helpers
+from unpack.utils.network_helpers import *
+
 
 # Add later when package references are correct
 # from unpack import clustering

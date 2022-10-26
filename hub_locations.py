@@ -19,14 +19,16 @@ Other functions:
 
 import math as m
 import random
+import unpack
 
-import utils.network_helpers as h
-import utils.visualizations as v
+import unpack.utils.network_helpers as h
+import unpack.utils.visualizations as v
 import matplotlib.pyplot as plt
 from re import X
-from network_delft import CityNetwork, timer_decorator
-from clustering import NetworkClustering
-from utils.multicore_shortest_path import transform_coordinates
+from unpack.network_delft import CityNetwork
+from unpack.utils.utils.timer import timer_decorator
+from unpack.clustering import NetworkClustering
+from unpack.utils.multicore_shortest_path import transform_coordinates
 
 
 def generate_network(name, data_folder, vehicle_type, coordinates):
@@ -95,14 +97,17 @@ def load_network(name, data_folder):
 @timer_decorator
 def main():
     #initialization variables
-    cpu_count = None
-    network_name = 'delft_walk'
+    cpu_count = None #input the maximum CPU cores
+    network_name = 'delft_center_walk'
     cluster_name = 'delft_cluster'
     data_folder = 'data/'
     vehicle_type = 'walk' # walk, bike, drive, all (See osmnx documentation)
     max_travel_time = 150 #time in seconds
     random_init = 100
-
+    skip_non_shortest_input = False
+    skip_treshold_input = 60
+    weight_input = 'travel_time'
+    cutoff_input = None
 
     ### Delft City Center #coordinates = [52.018347, 52.005217, 4.369142, 4.350504]
     ### Delft #coordinates = [52.03, 51.96, 4.4, 4.3]
@@ -113,7 +118,8 @@ def main():
     start_pt_ct = 3 # number of starting hubs
     calc_euclid = False #also calculate euclidean distances for first iteration?
     generate_new_network = True # if true, new network will be generated, otherwise set to false to only load a network
-    load_clustering = True # if clustering crashed or finished, set to true to load the last iteration
+    load_clustering = False # if clustering crashed or finished, set to true to load the last iteration
+    #!add option to start at specific stage
     visualize_clustering = True # if clusering images are generated
 
     hub_colors = ['#FFE54F', '#82C5DA', '#C90808', '#FAA12A', '#498591', '#E64C4C', '#E4FFFF', '#CA5808', '#3F4854']
@@ -132,6 +138,10 @@ def main():
 
     ### load network from file, run after network is generated
     City, orig_yx_transf = load_network(network_name, data_folder)
+    destinations = City.get_yx_destinations()
+    dest_edges = City.nearest_edges(5, cpus=12)
+    City.save_graph(network_name, data_folder)
+    dest_edges = City.ne
 
     ###initiate clustering
     Clusters = NetworkClustering('delftclustering')
@@ -140,10 +150,6 @@ def main():
     ### if clustering crashed or finishes, load the latest iteration
     if load_clustering: Clusters.load_clustering(cluster_name, data_folder)
     print('Starting with iteration ', Clusters.iteration)
-    
-    #City.ne = None
-
-    orig_edges = h.nearest_edges_buildings(City, orig_yx_transf, network_name, data_folder, cpu_count)
 
     #initialized variables - do not change
     iteration = Clusters.iteration
@@ -160,55 +166,88 @@ def main():
         print('iteration: ', iteration)
         Clusters.reset_hub_df(City)
         Clusters.iteration = iteration
+        Clusters.max_cores = cpu_count
         Clusters.save_iteration(cluster_name, data_folder)
 
         if iteration == 1:
             ### only on first iteration generate random points for hubs and cluster houses based on closest hub
-            Clusters.generate_random_points(coordinates_transformed_xy, start_pt_ct)
-            if visualize_clustering: v.visualize_clusters(City, Clusters, 'locations_1', hub_colors, save=True)
+            hubs = Clusters.generate_random_points(coordinates_transformed_xy, start_pt_ct)
+            #!if visualize_clustering: v.visualize_clusters(City, Clusters, 'locations_1', hub_colors, save=True)
+            ##Save Cluster object at this stage
             print(Clusters.hub_list_dictionary) 
-            Clusters.hub_clusters(City, orig_yx_transf, orig_edges, cluster_name, data_folder, cpu_count)
+            paths = unpack.multicore_single_source_shortest_path(City.graph, Clusters.hub_list_dictionary, destinations, dest_edges,
+                skip_non_shortest=skip_non_shortest_input, 
+                skip_treshold=skip_treshold_input,
+                weight=weight_input, 
+                cutoff=cutoff_input, 
+                cpus=cpu_count
+                )
+            Clusters.hub_assignments_df = unpack.paths_to_dataframe(paths, hubs=hubs)
             if calc_euclid:
                 Clusters.hub_clusters_euclidean(orig_yx_transf, cluster_name, data_folder)
-                if visualize_clustering: v.euclid_visualize_clusters(City, Clusters, 'clusters_1_euclid', hub_colors, save=True)
-            if visualize_clustering: v.visualize_clusters(City, Clusters, 'clusters_1', hub_colors, save=True)
+                #!if visualize_clustering: v.euclid_visualize_clusters(City, Clusters, 'clusters_1_euclid', hub_colors, save=True)
+                ##Save Cluster object at this stage
+            #!if visualize_clustering: v.visualize_clusters(City, Clusters, 'clusters_1', hub_colors, save=True)
+            Clusters.max_cores = cpu_count
+            
 
         else:
+            ###!update number of cpu cores based on number of hubs 
+            ###number of cores = to number of hubs until 
             ### on all other iterations, add a new hub each time the while loop runs 
             Clusters.add_points(point_count, coordinates_transformed_xy)
             print('added hub', Clusters.hub_list_dictionary)
-            image_title1 = 'locations_' + str(iteration)
-            if visualize_clustering: v.visualize_clusters(City, Clusters, image_title1, hub_colors, save=True)
-            Clusters.hub_clusters(City, orig_yx_transf, orig_edges, cluster_name, data_folder, cpu_count)
+            #!image_title1 = 'locations_' + str(iteration)
+            #!if visualize_clustering: v.visualize_clusters(City, Clusters, image_title1, hub_colors, save=True)
+            paths = unpack.multicore_single_source_shortest_path(City.graph, hubs, destinations, dest_edges,
+                skip_non_shortest=skip_non_shortest_input, 
+                skip_treshold=skip_treshold_input,
+                weight=weight_input, 
+                cutoff=cutoff_input, 
+                cpus=cpu_count
+                )
+            Clusters.hub_assignments_df = unpack.paths_to_dataframe(paths, hubs=hubs)
             if calc_euclid:
                 Clusters.hub_clusters_euclidean(orig_yx_transf, cluster_name, data_folder)
-                image_title_euclid = 'clusters_' + str(iteration) + '_euclid'
-                if visualize_clustering: v.euclid_visualize_clusters(City, Clusters, image_title_euclid, hub_colors, save=True)
-            image_title2 = 'clusters_' + str(iteration)
-            if visualize_clustering: v.visualize_clusters(City, Clusters, image_title2, hub_colors, save=True)
+                #!image_title_euclid = 'clusters_' + str(iteration) + '_euclid'
+                #!if visualize_clustering: v.euclid_visualize_clusters(City, Clusters, image_title_euclid, hub_colors, save=True)
+            #!image_title2 = 'clusters_' + str(iteration)
+            #!if visualize_clustering: v.visualize_clusters(City, Clusters, image_title2, hub_colors, save=True)
+            Clusters.max_cores = cpu_count
 
         ###optimize hub locations
         move_distance = Clusters.new_hub_location(City)
         i = 0
         while move_distance > max_distance and i < max_iterations:
-            Clusters.hub_clusters(City, orig_yx_transf, orig_edges, cluster_name, data_folder, cpu_count)
+            paths = unpack.multicore_single_source_shortest_path(City.graph, hubs, destinations, dest_edges,
+                skip_non_shortest=skip_non_shortest_input, 
+                skip_treshold=skip_treshold_input,
+                weight=weight_input, 
+                cutoff=cutoff_input, 
+                cpus=cpu_count
+                )
+            Clusters.hub_assignments_df = unpack.paths_to_dataframe(paths, hubs=hubs)
             if calc_euclid: Clusters.hub_clusters_euclidean(orig_yx_transf, cluster_name, data_folder)
             move_distance = Clusters.new_hub_location(City)
             print('moved hubs on average ', move_distance)
 
             i += 1
 
-        ### visualized optimized hub locations
+        #!
+        # ### visualized optimized hub locations
         image_title = 'clusters_' + str(iteration) + '_optimized'
-        image_title_euclid = 'clusters_' + str(iteration) + '_euclid_optimized'
+        # image_title_euclid = 'clusters_' + str(iteration) + '_euclid_optimized'
         if visualize_clustering: v.visualize_clusters(City, Clusters, image_title, hub_colors, save=True)
-        if calc_euclid and visualize_clustering: v.euclid_visualize_clusters(City, Clusters, image_title_euclid, hub_colors, save=True) 
+        # if calc_euclid and visualize_clustering: v.euclid_visualize_clusters(City, Clusters, image_title_euclid, hub_colors, save=True) 
         
         ###check fitness function
         time_check, max_time_list = Clusters.hub_fitness(City, max_travel_time)
         iteration += 1
         max_distance -= 3
         max_iterations += 10
+
+    
+    ##!at end call multiplot with 1 core and add variable as option to show the image
     
 if __name__ == '__main__':
     main()
