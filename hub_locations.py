@@ -176,7 +176,7 @@ def main():
         if max_cpu_count is None: cpus = mp.cpu_count()
         Clusters.max_cores = max_cpu_count
         Clusters.save_iteration(cluster_name, data_folder, session_name, Clusters.iteration, '01_initialize')
-        print('saved iteration ' + str(Clusters.iteration) + 'initialize 01')
+        print('saved iteration ' + str(Clusters.iteration) + ' initialize 01')
 
         if iteration == 1:
             # update number of CPUs to use based on number of clusters
@@ -187,7 +187,7 @@ def main():
             hubs = Clusters.generate_random_points(coordinates_transformed_xy, start_pt_ct)
             Clusters.cluster_number = start_pt_ct
             Clusters.save_iteration(cluster_name, data_folder, session_name, Clusters.iteration, '02_locations')
-            print('saved iteration ' + str(Clusters.iteration) + 'locations 02')
+            print('saved iteration ' + str(Clusters.iteration) + ' locations 02')
             print(Clusters.hub_list_dictionary) 
             paths = unpack.multicore_single_source_shortest_path(City.graph, Clusters.hub_list_dictionary, destinations, dest_edges,
                 skip_non_shortest=skip_non_shortest_input, 
@@ -201,9 +201,9 @@ def main():
             if calc_euclid:
                 Clusters.hub_clusters_euclidean(orig_yx_transf, cluster_name, data_folder)
                 Clusters.save_iteration(cluster_name, data_folder, session_name, Clusters.iteration, '03_cluster_euclid')
-                print('saved iteration ' + str(Clusters.iteration) + 'cluster euclid 03')
+                print('saved iteration ' + str(Clusters.iteration) + ' cluster euclid 03')
             Clusters.save_iteration(cluster_name, data_folder, session_name, Clusters.iteration, '03_cluster')
-            print('saved iteration ' + str(Clusters.iteration) + 'cluster 03')
+            print('saved iteration ' + str(Clusters.iteration) + ' cluster 03')
             Clusters.max_cores = cpu_count
             
         else:
@@ -212,7 +212,7 @@ def main():
             Clusters.cluster_number += point_count
             print('added hub', Clusters.hub_list_dictionary)
             Clusters.save_iteration(cluster_name, data_folder, session_name, Clusters.iteration, '02_locations')
-            print('saved iteration ' + str(Clusters.iteration) + 'locations 02')
+            print('saved iteration ' + str(Clusters.iteration) + ' locations 02')
 
             # update number of CPUs to use based on number of clusters
             if Clusters.max_cores > Clusters.cluster_number: cpu_count = Clusters.cluster_number
@@ -230,9 +230,9 @@ def main():
             if calc_euclid:
                 Clusters.hub_clusters_euclidean(orig_yx_transf, cluster_name, data_folder)
                 Clusters.save_iteration(cluster_name, data_folder, session_name, Clusters.iteration, '03_clusters_euclid')
-                print('saved iteration ' + str(Clusters.iteration) + 'cluster euclid 03')
+                print('saved iteration ' + str(Clusters.iteration) + ' cluster euclid 03')
             Clusters.save_iteration(cluster_name, data_folder, session_name, Clusters.iteration, '03_clusters')
-            print('saved iteration ' + str(Clusters.iteration) + 'cluster 03')
+            print('saved iteration ' + str(Clusters.iteration) + ' cluster 03')
             Clusters.max_cores = cpu_count
 
         ###optimize hub locations
@@ -254,7 +254,7 @@ def main():
             i += 1
 
         Clusters.save_iteration(cluster_name, data_folder, session_name, Clusters.iteration, '04_clusters')
-        print('saved iteration ' + str(Clusters.iteration) + 'cluster 04')
+        print('saved iteration ' + str(Clusters.iteration) + ' cluster 04')
         
         ###check fitness function
         time_check, max_time_list = Clusters.hub_fitness(City, max_travel_time)
