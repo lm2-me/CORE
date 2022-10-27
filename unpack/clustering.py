@@ -25,6 +25,7 @@ import pickle
 import os.path
 
 import pandas
+from collections import OrderedDict
 from .utils.network_helpers import *
 from re import X
 
@@ -134,7 +135,8 @@ class NetworkClustering():
         coordinates_as_tupple = []
 
         if self.hub_list_dictionary == None:
-            hub_dictionary = {}
+            # ! Using an OrderedDict so that the order at which hubs are computed 
+            hub_dictionary = OrderedDict()
             self.hub_list_dictionary = hub_dictionary
 
         #[N, S, E, W]
@@ -177,7 +179,7 @@ class NetworkClustering():
                     "yx_transform": 0,
                 } 
             index += 1
-        
+
         return coordinates_as_tupple
         
 

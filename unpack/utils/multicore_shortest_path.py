@@ -8,6 +8,7 @@ from osmnx.distance import great_circle_vec
 from osmnx.utils_graph import get_route_edge_attributes
 
 from .utils.transform_coordinates import transform_coordinates
+from .utils.closest_hubs import closest_hubs
 
 import numpy as np
 import pandas as pd
@@ -15,7 +16,9 @@ import osmnx as ox
 
 import multiprocessing as mp
 from functools import partial
+from collections import OrderedDict
 
+import sys
 import tqdm
 import time
 
@@ -203,51 +206,6 @@ def _get_partial_edges(graph, nearest_edge, coordinate_yx):
 
     return (partial_edge_1, partial_edge_2)
     
-
-def closest_hub(paths_dict):
-    """ Compute the closest hub to a destination
-
-    Developed by Job de Vogel
-    
-    Parameters
-    ----------
-    paths_dict : dict
-        Result from the multicore_single_source_shortest_path
-        computation.
-    
-    Returns
-    -------
-    closest_hub_idx : list
-        List of indices indicating the closest hub to each destination.
-    
-    assigned_demand_points : list
-        List indicating if a destination is connected to a hub or not.
-    """
-
-
-    # List concatination to extract the weights for all paths for each hub
-    path_weights = np.array([[data[0] for data in hub] for hub in paths_dict.values()])
-    
-    # Calculate lowest weight and closest hub
-    lowest_weight = np.amin(path_weights.T, axis=1)
-    closest_hub_idx = np.argmin(path_weights.T, axis=1)
-    
-    # Convert to Python list to add None values
-    closest_hub_idx = closest_hub_idx.tolist()
-
-    # Store demand points that are assigned as coordinate
-    assigned_demand_points = []
-
-    # Set idx with weight inf to None
-    for i, weight in enumerate(lowest_weight):
-        if weight == float('inf'):
-            closest_hub_idx[i] = None
-        else:
-            assigned_demand_points.append(i)
-
-    closest_hub_idx = np.array(closest_hub_idx)
-
-    return closest_hub_idx, assigned_demand_points
 
 def _single_shortest_path(G, orig_yx, dest_yx, orig_edge, dest_edge,
     method='dijkstra', 
@@ -825,7 +783,7 @@ def multicore_shortest_path(graph, orig, dest, orig_edge, dest_edge, method='dij
     else:  # pragma: no cover
         raise ValueError("Please check shortest path inputs.")
 
-def multicore_single_source_shortest_path(graph, orig_dictionary, dest, dest_edges, skip_non_shortest=False, skip_treshold=None, method='dijkstra', weight='travel_time', cutoff=None, cpus=1):
+def multicore_single_source_shortest_path(graph, orig, dest, dest_edges, skip_non_shortest=False, skip_treshold=None, method='dijkstra', weight='travel_time', cutoff=None, cpus=1):
     """ Compute all shortest paths from multiple origins, considering
     a cutoff value and using multiple cores.
 
@@ -897,23 +855,26 @@ def multicore_single_source_shortest_path(graph, orig_dictionary, dest, dest_edg
     # 'index' from the dictionary for the numerical index and use the key of the dictionary as the hub name
     # see clustering.py lines 168 to 178 for how the information is stored in the dictionary when a new hub location is generated
     
-    # example for how to unpack the values from the dictionary
-    label_list = []
-    orig = []
-    for (hub_name, hub_info) in orig_dictionary.items():
-        
-        label_list.append(hub_name)
-        orig.append(
-            (hub_info['y'], hub_info['x'])
-        )
+    # ! Fixed
+    # @LM In your clustering algorithm, I changed the self.hub_list_dictionary type to an OrderedDict (line 139). You can just use it as
+    # a standard dictionary, but the order of the clusters will not change anymore. I am also taking in account other types of input,
+    # because it may be easy for general usage, to be able to just input a list of tuples or a single tuple to quickly run the algorithm,
+    # without having to specifically having to make a hubs input, as used by the clustering algorithm.
+
+    hub_names = False
 
     # Check the format of orig and change to list
     if isinstance(orig, tuple):
         orig = [orig]
+    elif isinstance(orig, OrderedDict):
+        hub_names = [hub_name for hub_name in orig.keys()]
+        orig = [(hub_info['y'], hub_info['x']) for (_, hub_info) in orig.items()]
+    elif isinstance(orig, dict):
+        raise TypeError('Multicore shortest path expects a collections.OrderedDict, not a standard dictionary.')
     elif isinstance(orig, list):
         pass
     else:
-        raise TypeError('Orig should be list, or single tuple.')
+        raise TypeError('Orig should be list, dict or single tuple.')
 
     # Check the format of dest and change to list
     if isinstance(dest, tuple):
@@ -1022,9 +983,16 @@ def multicore_single_source_shortest_path(graph, orig_dictionary, dest, dest_edg
             pool.close()
             pool.join()
     
-        for o, res in zip(orig, result):
-            orig_paths[o] = res
         
+        # Use the names in the orig OrderedDictionary as dictionary keys
+        if hub_names:
+            for name, res in zip(hub_names, result):
+                orig_paths[name] = res
+        else:
+        # Use the coordinates as dictionary keys
+            for o, res in zip(orig, result):
+                orig_paths[o] = res
+            
     return orig_paths
 
 def paths_to_dataframe(paths, hubs=None):
@@ -1036,7 +1004,7 @@ def paths_to_dataframe(paths, hubs=None):
     ----------
     paths : dict
         Paths result from single source shortest path computation
-    hubs : list of tuples
+    hubs : list, dict of tuples
         Optionally, adds x and y values of assigned hub to Dataframe
     
     Returns
@@ -1045,11 +1013,19 @@ def paths_to_dataframe(paths, hubs=None):
         Dataframe with data of shortest path computation.
     """
 
+    #! FIXED
+    # @LM Since the hubs input dict is now an OrderedDict, it is easier to find the closest hubs for each
+    # destination. I am not sure what you tried to do in line 1050-1051, but I comment it because I think
+    # it is not right. If you miss any data in the DataFrame, you can add it as described in line 1054.
+
+    # Initialize DataFrame with all the data
     df = pd.DataFrame()
 
-    closest_hubs, _ = closest_hub(paths)
-    
-    closest_paths = [list(paths.values())[hub_idx][num] if hub_idx != None else None for num, hub_idx in enumerate(closest_hubs)]
+    # Compute which paths belong to which hub
+    # Returns a list with indices of the assigned hub per destination: [2, 0, 0, 1, 4, ... , 0]
+    # This is possible, since we are using an OrderedDict
+    closest_hubs_list, _ = closest_hubs(paths)
+    closest_paths = [list(paths.values())[hub_idx][num] if hub_idx != None else None for num, hub_idx in enumerate(closest_hubs_list)]
 
     #! PLEASE FIX
     #@Job please ensure that the data the DF is saving is coming from the hub_dictionary, 
@@ -1057,19 +1033,53 @@ def paths_to_dataframe(paths, hubs=None):
     # key of the dictionary as the hub name
     # see clustering.py lines 168 to 178 for how the information is stored in the dictionary when a new hub location is generated
 
-    #!Nearest_hub_idf needs to get the hub index from the dictionary
-    df['Nearest_hub_idx'] = closest_hubs
-    #!Nearest_hub_name needs to get the hub name from the dictionary
-    df['Nearest_hub_name'] = [str(f"hub_{i + 1}" if i != None else None for i in closest_hubs]
-    df['Weight'] = [data[0] if data != None else None for data in closest_paths]
-    df['Path_not_found'] = [True if hub == None else False for hub in closest_hubs]
-    df['Euclid_nearesthub'] = [str(f"hub_{i + 1}") if i != None else None for i in closest_hubs]
-    df['Euclid_hubdistance'] = [data[0] if data != None else None for data in closest_paths]
+    if isinstance(hubs, OrderedDict):        
+        # Extract the data of the hubs from the dictionary
+        names = [name for name in hubs.keys()]
+        idxs = [hub_info['index'] for _, hub_info in hubs.items()]
+        hub_x = [hub_info['x'] for _, hub_info in hubs.items()]
+        hub_y = [hub_info['y'] for _, hub_info in hubs.items()]
+        
+        # For each assigned hub index, add data to the DataFrame
+        df['Nearest_hub_name'] = [names[closest_hub] if closest_hub != None else None for closest_hub in closest_hubs_list]
+        df['idx'] = [idxs[closest_hub] if closest_hub != None else None for closest_hub in closest_hubs_list]
+        df['hub_x'] = [hub_x[closest_hub] if closest_hub != None else None for closest_hub in closest_hubs_list]
+        df['hub_y'] = [hub_y[closest_hub] if closest_hub != None else None for closest_hub in closest_hubs_list]
+        df['Weight'] = [data[0] if data != None else None for data in closest_paths]
+        df['Path_not_found'] = [True if hub == None else False for hub in closest_hubs_list]
+        # df['Euclid_nearesthub'] = [str(f"hub_{i + 1}") if i != None else None for i in closest_hubs_list]
+        # df['Euclid_hubdistance'] = [data[0] if data != None else None for data in closest_paths]
+        df['Path'] = closest_paths
+        
+        # ! QUESTION
+        '''
+        @LM I am not sure if you also want the other variables in the DataFrame, as suggested in your clustering algorithm
+        I assume it is not required to add avg_time to the DataFrame since it is related to the hub, not the path.
+        If you do need it, you can easily add it by using:
+        
+        # Extract the hub data from the OrderedDict
+        avg_time = [hub_info['avg_time'] for _, hub_info in hubs.items()]
     
-    if hubs != None:
-        df['hub_x'] = [hubs[i][1] if i != None else None for i in closest_hubs]
-        df['hub_y'] = [hubs[i][0] if i != None else None for i in closest_hubs]
+        And add it to the DataFrame using:
+    
+        # Add the correct value to the DataFrame 
+        df['avg_time'] = [avg_time[closest_hub] if closest_hub != None else None for closest_hub in closest_hubs_list]
+        '''
+    
+    # Else: no OrderedDict is given, just assign based on closest_hubs
+    else:
+        df['Nearest_hub_name'] = [str(f"hub {i}") if i != None else None for i in closest_hubs]
+        df['Nearest_hub_idx'] = closest_hubs
+        df['Weight'] = [data[0] if data != None else None for data in closest_paths]
+        df['Path_not_found'] = [True if hub == None else False for hub in closest_hubs]
+        df['Euclid_nearesthub'] = [str(f"hub_{i + 1}") if i != None else None for i in closest_hubs]
+        df['Euclid_hubdistance'] = [data[0] if data != None else None for data in closest_paths]
+    
+        if hubs != None:
+            df['hub_x'] = [hubs[i][1] if i != None else None for i in closest_hubs]
+            df['hub_y'] = [hubs[i][0] if i != None else None for i in closest_hubs]
 
-    df['Path'] = closest_paths
+        # Add a column with the shortest path result
+        df['Path'] = closest_paths
     
     return df
