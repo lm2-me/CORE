@@ -23,8 +23,8 @@ import math as m
 import random
 import pickle
 import os.path
-
 import pandas
+
 from collections import OrderedDict
 from .utils.network_helpers import *
 from re import X
@@ -38,24 +38,27 @@ class NetworkClustering():
         self.hub_list_dictionary = None
         self.hub_assignments_df = pandas.DataFrame()
         self.max_cores = None
+        self.cluster_number = 0
         
     def __repr__(self):
         return "<Clustering object of {}>".format(self.name)
 
-    def save_iteration(self, name: str, folder: str):        
-            object_name = name
-            path = folder + str(object_name) + '.pkl'
-            print('Saving {} to {}'.format(object_name, path))
+    def save_iteration(self, name: str, folder: str, session_name: str, iteration: str, step:str): 
+        folder_path = folder + session_name + '/'
+        if not os.path.exists(folder_path):
+            os.makedirs(folder_path)   
 
-            with open(path, 'wb') as file:
-                pickle.dump(self, file, pickle.HIGHEST_PROTOCOL)
+        object_name = str(name) + '_iteration ' + str(iteration) + '_' + step
+        path = folder_path + object_name + '.pkl'
+        print('Saving {} to {}'.format(object_name, path))
+
+        with open(path, 'wb') as file:
+            pickle.dump(self, file, pickle.HIGHEST_PROTOCOL)
     
-    def load_clustering(self, name: str, folder:str):
-        object_name = name
-        path = folder + str(object_name) + '.pkl'
+    def continue_clustering(self, path: str):
         if os.path.isfile(path):
             # Load a graph from drive
-            print('Loading {} from {}'.format(object_name, path))
+            print('Loading {}'.format(path))
 
             with open(path, 'rb') as file:
                 last_state = pickle.load(file)
@@ -64,7 +67,7 @@ class NetworkClustering():
                 self.hub_list_dictionary = last_state.hub_list_dictionary
                 self.hub_assignments_df = last_state.hub_assignments_df
         else:
-            print('Could not locate {} at {}'.format(object_name, path))
+            print('Could not locate {}'.format(path))
    
     ### Initialize DF, reset the data stored in the dataframe so that previous runs won't impact the current run
     def reset_hub_df(self, City):
@@ -115,15 +118,15 @@ class NetworkClustering():
         
         if 'Euclid_nearesthub' not in hub_assignments_df:
             hub_num = [('')] * len(City.building_addr_df)
-            hub_assignments_df['euclid_nearesthub'] = hub_num
+            hub_assignments_df['Euclid_nearesthub'] = hub_num
         else:
-            hub_assignments_df['euclid_nearesthub'].values[:] = ''
+            hub_assignments_df['Euclid_nearesthub'].values[:] = ''
         
         if 'Euclid_hubdistance' not in hub_assignments_df:
             euclid_hub_dist = [(m.inf)] * len(City.building_addr_df)
-            hub_assignments_df['euclid_hubdistance'] = euclid_hub_dist
+            hub_assignments_df['Euclid_hubdistance'] = euclid_hub_dist
         else:
-            hub_assignments_df['euclid_hubdistance'].values[:] = np.inf
+            hub_assignments_df['Euclid_hubdistance'].values[:] = np.inf
 
         # Save to Clustering object
         self.hub_assignments_df = hub_assignments_df
@@ -135,7 +138,6 @@ class NetworkClustering():
         coordinates_as_tupple = []
 
         if self.hub_list_dictionary == None:
-            # ! Using an OrderedDict so that the order at which hubs are computed 
             hub_dictionary = OrderedDict()
             self.hub_list_dictionary = hub_dictionary
 
@@ -146,9 +148,7 @@ class NetworkClustering():
         coordinateY_min = coordinates_transformed_xy[2][1]
         coordinateY_max = coordinates_transformed_xy[0][1]
 
-        #print(coordinateX_min, coordinateX_max, coordinateY_min, coordinateY_max)
-
-        index = len(self.hub_list_dictionary)+1
+        index = len(self.hub_list_dictionary)
         
         #k-means ++
         # for i in range(start_pt_ct):
@@ -185,25 +185,21 @@ class NetworkClustering():
 
     ### cluster houses to each hub based on the euclidean distance to each hub
     def hub_clusters_euclidean(self, orig_yx_transf, name, data_folder):
-        ### randomly generated hub locations is hub_dictionary
+        ### get hub locations from hub list dictionary
         hub_names, hub_yx_transf = get_yx_transf_from_dict(self.hub_list_dictionary)
-        
         hub_yx_dict = dict(zip(hub_names, hub_yx_transf))
 
-        ### first_paths returns [(route_weight, nx_route, orig_partial_edge, dest_partial_edge)]
         for hub in hub_names:
-            print(hub)
             #get distance of all current hub to all houses        
             point2 = np.array(hub_yx_dict[hub])
-            ## print(point2)
 
             for i, house in enumerate(orig_yx_transf):
                 point1 = np.array(house)
                 euclid_dist = ((point2[0] - point1[0]) ** 2 + (point2[1] - point1[1]) ** 2) ** 0.5
             
-                if euclid_dist < self.hub_assignments_df.loc[i,'euclid_hubdistance']:
-                    self.hub_assignments_df.at[i,'euclid_hubdistance']=euclid_dist
-                    self.hub_assignments_df.at[i,'euclid_nearesthub']=hub
+                if euclid_dist < self.hub_assignments_df.loc[i,'Euclid_hubdistance']:
+                    self.hub_assignments_df.at[i,'Euclid_hubdistance']=euclid_dist
+                    self.hub_assignments_df.at[i,'Euclid_nearesthub']=hub
         
         self.save_iteration(name, data_folder)
 
@@ -211,11 +207,11 @@ class NetworkClustering():
     def new_hub_location(self, City):
         #! ensure this is weighted based on number of addresses at each location
         hub_dictionary = self.hub_list_dictionary
-        print(hub_dictionary)
         for (hub_name, hub_data) in hub_dictionary.items():
             dist_moved = 0
             x = []
             y = []
+
             for i, row in self.hub_assignments_df.iterrows():
                 if row['Nearest_hub_name'] == hub_name:
                     #x
@@ -223,11 +219,10 @@ class NetworkClustering():
                     x.append(house_x)
                     #y
                     house_y = City.building_addr_df.iloc[i]['y']
-                    y.append(house_y)   
+                    y.append(house_y)
+   
             all_x = np.array(x)
             all_y = np.array(y)
-            print('all_x', all_x)
-            print('all_y', all_y)
             average_x = np.sum(all_x) / len(all_x)
             average_y = np.sum(all_y) / len(all_y)
             previous_location = (hub_dictionary[hub_name]['x'], hub_dictionary[hub_name]['y'])
@@ -250,13 +245,14 @@ class NetworkClustering():
 
     ### calculate the hub fitness
     def hub_fitness(self, City, max_travel_time):
+        #!add code that identifies how many are not yet assigned (if hubs need to be added)
         # dictionary: x, y, avg_time, people_served
         # find and save average time and people served to hub_dictionary
         hub_dictionary = self.hub_list_dictionary
         
-        #print(City.building_addr_df[['x', 'y', 'hubdistance', 'nearesthub']])
         time_requirement = False
         max_time_list = []
+        unassigned = 0
         
         for (hub_name, _) in hub_dictionary.items():
             all_times = []
@@ -269,6 +265,8 @@ class NetworkClustering():
                     #people served
                     people = City.building_addr_df.iloc[i]['addr']
                     all_people.append(people)
+                if row['Nearest_hub_name'] == None:
+                    unassigned += 1
 
             all_times_np = np.array(all_times)
             average = np.sum(all_times_np) / len(all_times)
@@ -287,3 +285,13 @@ class NetworkClustering():
         self.hub_list_dictionary = hub_dictionary
 
         return time_check, max_time_list
+    
+    def load_files_for_plot(path):
+        cluster_iterations = []
+        destinations = []
+        closest_hub = []
+
+        allfiles = [f for f in os.listdir(path) if os.path.isfile(os.path.join(path, f))]
+        print(allfiles)
+
+        return cluster_iterations, destinations, closest_hub

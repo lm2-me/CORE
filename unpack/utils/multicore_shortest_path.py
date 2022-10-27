@@ -1012,12 +1012,6 @@ def paths_to_dataframe(paths, hubs=None):
     Dataframe :
         Dataframe with data of shortest path computation.
     """
-
-    #! FIXED
-    # @LM Since the hubs input dict is now an OrderedDict, it is easier to find the closest hubs for each
-    # destination. I am not sure what you tried to do in line 1050-1051, but I comment it because I think
-    # it is not right. If you miss any data in the DataFrame, you can add it as described in line 1054.
-
     # Initialize DataFrame with all the data
     df = pd.DataFrame()
 
@@ -1026,12 +1020,6 @@ def paths_to_dataframe(paths, hubs=None):
     # This is possible, since we are using an OrderedDict
     closest_hubs_list, _ = closest_hubs(paths)
     closest_paths = [list(paths.values())[hub_idx][num] if hub_idx != None else None for num, hub_idx in enumerate(closest_hubs_list)]
-
-    #! PLEASE FIX
-    #@Job please ensure that the data the DF is saving is coming from the hub_dictionary, 
-    # please retreive the 'Nearest_hub_idx' from 'index' from the dictionary  (the numerical index) and use the 
-    # key of the dictionary as the hub name
-    # see clustering.py lines 168 to 178 for how the information is stored in the dictionary when a new hub location is generated
 
     if isinstance(hubs, OrderedDict):        
         # Extract the data of the hubs from the dictionary
@@ -1047,37 +1035,20 @@ def paths_to_dataframe(paths, hubs=None):
         df['hub_y'] = [hub_y[closest_hub] if closest_hub != None else None for closest_hub in closest_hubs_list]
         df['Weight'] = [data[0] if data != None else None for data in closest_paths]
         df['Path_not_found'] = [True if hub == None else False for hub in closest_hubs_list]
-        # df['Euclid_nearesthub'] = [str(f"hub_{i + 1}") if i != None else None for i in closest_hubs_list]
-        # df['Euclid_hubdistance'] = [data[0] if data != None else None for data in closest_paths]
         df['Path'] = closest_paths
-        
-        # ! QUESTION
-        '''
-        @LM I am not sure if you also want the other variables in the DataFrame, as suggested in your clustering algorithm
-        I assume it is not required to add avg_time to the DataFrame since it is related to the hub, not the path.
-        If you do need it, you can easily add it by using:
-        
-        # Extract the hub data from the OrderedDict
-        avg_time = [hub_info['avg_time'] for _, hub_info in hubs.items()]
-    
-        And add it to the DataFrame using:
-    
-        # Add the correct value to the DataFrame 
-        df['avg_time'] = [avg_time[closest_hub] if closest_hub != None else None for closest_hub in closest_hubs_list]
-        '''
     
     # Else: no OrderedDict is given, just assign based on closest_hubs
     else:
-        df['Nearest_hub_name'] = [str(f"hub {i}") if i != None else None for i in closest_hubs]
-        df['Nearest_hub_idx'] = closest_hubs
+        df['Nearest_hub_name'] = [str(f"hub {i}") if i != None else None for i in closest_hubs_list]
+        df['Nearest_hub_idx'] = closest_hubs_list
         df['Weight'] = [data[0] if data != None else None for data in closest_paths]
-        df['Path_not_found'] = [True if hub == None else False for hub in closest_hubs]
-        df['Euclid_nearesthub'] = [str(f"hub_{i + 1}") if i != None else None for i in closest_hubs]
+        df['Path_not_found'] = [True if hub == None else False for hub in closest_hubs_list]
+        df['Euclid_nearesthub'] = [str(f"hub_{i + 1}") if i != None else None for i in closest_hubs_list]
         df['Euclid_hubdistance'] = [data[0] if data != None else None for data in closest_paths]
     
         if hubs != None:
-            df['hub_x'] = [hubs[i][1] if i != None else None for i in closest_hubs]
-            df['hub_y'] = [hubs[i][0] if i != None else None for i in closest_hubs]
+            df['hub_x'] = [hubs[i][1] if i != None else None for i in closest_hubs_list]
+            df['hub_y'] = [hubs[i][0] if i != None else None for i in closest_hubs_list]
 
         # Add a column with the shortest path result
         df['Path'] = closest_paths
