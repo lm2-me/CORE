@@ -1038,6 +1038,8 @@ def paths_to_dataframe(paths, hubs=None):
         df['Path'] = closest_paths
     
     # Else: no OrderedDict is given, just assign based on closest_hubs
+    # ! @LM Apparently hubs input was not a list anymore, so it's trying to extract
+    # the data in a wrong way. I am not sure why it changed in the second iteration...
     else:
         df['Nearest_hub_name'] = [str(f"hub {i}") if i != None else None for i in closest_hubs_list]
         df['Nearest_hub_idx'] = closest_hubs_list

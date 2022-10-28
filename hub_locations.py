@@ -178,7 +178,7 @@ def main():
         Clusters.save_iteration(cluster_name, data_folder, session_name, Clusters.iteration, '01_initialize')
         print('saved iteration ' + str(Clusters.iteration) + ' initialize 01')
 
-        if iteration == 1:
+        if iteration == 1:           
             # update number of CPUs to use based on number of clusters
             if Clusters.max_cores > start_pt_ct: cpu_count = start_pt_ct
             else: cpu_count = Clusters.max_cores
@@ -206,7 +206,7 @@ def main():
             print('saved iteration ' + str(Clusters.iteration) + ' cluster 03')
             Clusters.max_cores = cpu_count
             
-        else:
+        else:           
             ### on all other iterations, add a new hub each time the while loop runs 
             Clusters.add_points(point_count, coordinates_transformed_xy)
             Clusters.cluster_number += point_count
@@ -262,6 +262,7 @@ def main():
         max_distance -= 3
         max_iterations += 10
 
+    # ! @LM something goes wrong here, I get a TypeError
     file_path_to_read = data_folder + session_name + '/'
     cluster_iterations, destinations, closest_hub = Clusters.load_files_for_plot(file_path_to_read)
     #unpack.multiplot_save(cluster_iterations, City, destinations, closest_hub, hub_colors, session_name, dpi=300, cpus=None)
