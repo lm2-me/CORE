@@ -849,17 +849,6 @@ def multicore_single_source_shortest_path(graph, orig, dest, dest_edges, skip_no
     dest_partial_edge
         The Linestring at the destination of the path.
     """
-    #! PLEASE FIX
-    #@Job please ensure input is the hub_dictionary (I renamed the parameter to orig_dictionary), 
-    # please retreive the y,x coordinates from the dictionary and when you save the hub information to the DF, please read
-    # 'index' from the dictionary for the numerical index and use the key of the dictionary as the hub name
-    # see clustering.py lines 168 to 178 for how the information is stored in the dictionary when a new hub location is generated
-    
-    # ! Fixed
-    # @LM In your clustering algorithm, I changed the self.hub_list_dictionary type to an OrderedDict (line 139). You can just use it as
-    # a standard dictionary, but the order of the clusters will not change anymore. I am also taking in account other types of input,
-    # because it may be easy for general usage, to be able to just input a list of tuples or a single tuple to quickly run the algorithm,
-    # without having to specifically having to make a hubs input, as used by the clustering algorithm.
 
     hub_names = False
 
@@ -1038,8 +1027,7 @@ def paths_to_dataframe(paths, hubs=None):
         df['Path'] = closest_paths
     
     # Else: no OrderedDict is given, just assign based on closest_hubs
-    # ! @LM Apparently hubs input was not a list anymore, so it's trying to extract
-    # the data in a wrong way. I am not sure why it changed in the second iteration...
+
     else:
         df['Nearest_hub_name'] = [str(f"hub {i}") if i != None else None for i in closest_hubs_list]
         df['Nearest_hub_idx'] = closest_hubs_list
