@@ -992,17 +992,8 @@ def format_paths_for_plot(paths, closest_hubs, colors):
         paths : list
             Result of the multicore shortest paths computation (single source).
         
-        orig_yx : list of tuples
-            y, x coordinates of the origins.
-        
-        dest_yx : list of tuples
-            y, x coordinates of the destinations.
-        
         closest_hubs : numpy array
-            Array of integers indicating the origins idx.
-        
-        assigned_houses : list of integers
-            List of destination idxs assigned to any origin. 
+            Array of integers indicating the origins idx. 
         
         colors : list of strings
             Colors that should be used.
@@ -1012,16 +1003,9 @@ def format_paths_for_plot(paths, closest_hubs, colors):
             List of paths that can be plotted, only paths that are
             actually used are inside list.
             
-        destinations : list of tuples
-            List containing all the destinations corresponding to
-            the cleaned_paths.
-            
         color_mask : list of strings
             Colors that should be used for the paths in same order
             as cleaned_paths.
-        
-        orig_color_mask : list of strings
-            Colors that should be used for the origins.
     """
     
     color_mask = [colors[i % len(colors)] for i in closest_hubs if i != None]
@@ -1029,7 +1013,7 @@ def format_paths_for_plot(paths, closest_hubs, colors):
 
     return cleaned_paths, color_mask
 
-def paths_to_dataframe(paths, destinations_yx, colors, hubs=None):
+def paths_to_dataframe(paths, colors, hubs=None):
     """ Convert shortest path results to a Pandas Dataframe.
 
     Developed by Job de Vogel
