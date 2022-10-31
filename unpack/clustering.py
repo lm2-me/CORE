@@ -346,7 +346,8 @@ class NetworkClustering():
     ### calculate the hub fitness
     def hub_fitness(self, City, max_travel_time):
         #change these values to adjust the fitnes
-        max_unassigned_percent = 0.1
+        max_unassigned_percent = 0.1 #percentage of people that can be unassigned to a hub
+        max_long_walk_percent = 0.1 #percentage of people that can have long walks to hub
         #one hub has the capacity for 2190 packages, assumed each person receives a package once every 3 days
         max_people_served = 6570
 
@@ -404,20 +405,27 @@ class NetworkClustering():
         average_travel_time = np.sum(average_list) / len(average_list)
         max_time = np.amax(max_time_list_np)
         
-        #add a % greater than time_check and max travel time and 
+        #check how many travel times are very long (greater than 10% over target) 
+        long_travel_times = []
+        for time in max_time_list_np:
+            if time > max_travel_time*1.1:
+                long_travel_times.append(time)
+
+        long_travel = len(long_travel_times) < city_wide_people_served * max_long_walk_percent
         time_check = all(i <= max_travel_time for i in max_time_list_np)
 
         capacity_np = np.array(capacity_list)
         average_capacity = np.sum(capacity_np) / len(capacity_np)
         capacity_check = all(i <= max_people_served for i in capacity_np)
 
-        if time_check and capacity_check and unassigned < (max_unassigned_percent * city_wide_people_served):
+        if time_check or long_travel and capacity_check and unassigned < (max_unassigned_percent * city_wide_people_served):
             fitness_check = True
         
         print('average travel time {} seconds, max travel time {} seconds, average people served per hub {} people'.format(average_travel_time, max_time, average_capacity))
 
         return fitness_check, time_check
     
+    ### load the CSV files and save to lists to input into the multiplot function
     def load_files_for_plot(self, path):
 
         cluster_iterations = []
@@ -426,7 +434,6 @@ class NetworkClustering():
         colors = []
         title = []
 
-        #'path', 'cluster_name', 'cluster_hubs', 'color_mask', 'title'
         allfiles = [f for f in os.listdir(path) if os.path.isfile(os.path.join(path, f))]
         for file in allfiles:
             file_cluster_iterations = []
@@ -439,8 +446,11 @@ class NetworkClustering():
                 file_cluster_iterations.append(row['path'])
                 file_colors.append(row['color_mask'])
                 if row['cluster_hubs'] != np.NaN:
-                    file_colors.append(row['cluster_hubs'])
+                    file_hubs.append(row['cluster_hubs'])
             
+            print('path when extracting', len(file_cluster_iterations))
+            print('colors when extracting', len(file_colors))
+
             cluster_iterations.append(file_cluster_iterations)
             file_name.append(current_df.iloc[0]['cluster_name'])
             hubs.append(file_hubs)
@@ -453,8 +463,6 @@ class NetworkClustering():
         destinations, dest_edges, skip_non_shortest_input, skip_treshold_input, weight_input, cutoff_input, 
         max_additional_clusters, calc_euclid, orig_yx_transf, point_count, max_travel_time, max_distance, max_iterations,
         max_cpu_count, hub_colors):
-
-        print('self.name is ', self.name)
 
         #initialize variables
         iteration = self.iteration

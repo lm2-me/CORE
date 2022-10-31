@@ -167,8 +167,6 @@ def main():
 
     print_csv_files_path = data_folder + session_name + '/CSV/'
     cluster_iterations, file_name, hubs, title, colors = Clusters.load_files_for_plot(print_csv_files_path)
-
-    print(colors)
     
     print('final hub locations and information', Clusters.hub_list_dictionary)
     destinations = []
