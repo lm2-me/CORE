@@ -79,6 +79,7 @@ class NetworkClustering():
             cluster_iteration_list.append(row['Path'])
             color_mask_list.append(row['Color_mask'])
 
+        print(cluster_iteration_list)
         print_info_df['path'] = cluster_iteration_list
         print_info_df['color_mask'] = color_mask_list
 
@@ -447,9 +448,6 @@ class NetworkClustering():
                 file_colors.append(row['color_mask'])
                 if row['cluster_hubs'] != np.NaN:
                     file_hubs.append(row['cluster_hubs'])
-            
-            print('path when extracting', len(file_cluster_iterations))
-            print('colors when extracting', len(file_colors))
 
             cluster_iterations.append(file_cluster_iterations)
             file_name.append(current_df.iloc[0]['cluster_name'])
