@@ -144,7 +144,7 @@ def multiplot_save(CityNetwork, cluster_iterations, origins_list, destinations, 
         This functions does not actually show the plot. For that matter, use
         CityNetwork.plot(show=True)
     """
-    
+
     # Figure out how many cpu cores are available
     if cpus is None:
         cpus = mp.cpu_count()

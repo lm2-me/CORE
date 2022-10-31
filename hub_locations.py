@@ -159,31 +159,23 @@ def main():
     point_count = 1 #the number of new hubs to add when the fitness is not reached
     max_distance = 50 #when distance the hub moves during k-means clustering, is less than max_distance, the hub will stop moving
     max_iterations = 30 #maximum iterations in case the max_distance moves a lot for too long
-    max_additional_clusters = 10 #after adding this many new locations, the algorithm will stop use this to cut the algorithm before the optimial solution if time is a concern, if set above 50 it will be reset to 50
+    max_additional_clusters = 2 #after adding this many new locations, the algorithm will stop use this to cut the algorithm before the optimial solution if time is a concern, if set above 50 it will be reset to 50
 
     Clusters.optimize_locations(City, session_name, data_folder, start_pt_ct, coordinates_transformed_xy, destinations, 
         dest_edges, skip_non_shortest_input, skip_treshold_input, weight_input, cutoff_input, max_additional_clusters, 
-        calc_euclid, orig_yx_transf, point_count, max_travel_time, max_distance, max_iterations, max_cpu_count)
+        calc_euclid, orig_yx_transf, point_count, max_travel_time, max_distance, max_iterations, max_cpu_count, hub_colors)
 
-    file_path_to_read = data_folder + session_name + '/'
-    name, cluster_iterations, hub_locations_yx, closest_hub = Clusters.load_files_for_plot(file_path_to_read)
+    print_csv_files_path = data_folder + session_name + '/CSV/'
+    cluster_iterations, file_name, hubs, title, colors = Clusters.load_files_for_plot(print_csv_files_path)
+
+    print(colors)
     
     print('final hub locations and information', Clusters.hub_list_dictionary)
-    #!@Job can you please take a look and clarify what inputs you need to plot? 
-    # I am extracting the following information from the files with the "load files for plot method":
-    # name - a name to enter to properly name the plot and to show as the plot title
-    # cluster_iterations - which iteration the information is from, you can use this to look up the date from hub_locations_yx and closet_hub
-    # for example if cluster_iterations = 0 then the corresponding information is hub_locations_yx[0] and closest_hub[0]
-    
-    #! Answer: the cleaned version of all paths in a list. 
-    # For hubs a list of lists with the hubs per iteration, this is the same as the 'path' column in the DataFrame
-    # Session name is still WIP
-    # ? closest hub input should be removed?
-    # hub_locations_yx is technically already in cluster iterations
-    
-    
-    if visualize_clustering: unpack.multiplot_save(cluster_iterations, City, hub_locations_yx, closest_hub, hub_colors, session_name, dpi=300, cpus=None)
+    destinations = []
+    for i, row in City.building_addr_df.iterrows():
+        destinations.append((row['y'], row['x']))
 
+    if visualize_clustering: unpack.multiplot_save(City, cluster_iterations, hubs, destinations, file_name, colors, hub_colors, cpus=1)
     
 if __name__ == '__main__':
     main()
