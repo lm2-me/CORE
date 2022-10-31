@@ -1,4 +1,6 @@
 import multiprocessing as mp
+from .utils.closest_hubs import closest_hubs as closest_hub_func
+
 import tqdm
 
 """
@@ -69,7 +71,7 @@ def format_paths_for_plot(paths, orig_yx, dest_yx, closest_hubs, assigned_houses
 
     return cleaned_paths, destinations, color_mask, orig_color_mask
 
-def _plot(cluster_iteration, i, CityNetwork, destinations, closest_hub_func, colors, session_name, dpi):
+def _plot(CityNetwork, cluster_iteration, i, origins, destinations, color_mask, colors, session_name, dpi):
     """Plot and save one image with clusters and paths
 
     Args:
@@ -102,17 +104,20 @@ def _plot(cluster_iteration, i, CityNetwork, destinations, closest_hub_func, col
         This functions does not actually show the plot. For that matter, use
         CityNetwork.plot(show=True)
     """
-    
-    closest_hubs, assigned_houses = closest_hub_func(cluster_iteration)
 
-    cleaned_paths, destinations, color_mask, orig_color_mask = format_paths_for_plot(cluster_iteration, cluster_iteration.keys(), destinations, closest_hubs, assigned_houses, colors)
+    orig_color_mask = []
+    for i in range(len(origins)):
+        orig_color_mask.append(colors[i % len(colors)])
 
-    CityNetwork.plot(routes=cleaned_paths, origins=cluster_iteration.keys(), destinations=destinations, route_color_mask=color_mask, orig_color_mask=orig_color_mask, dest_color_mask=color_mask, fig_name=f"{session_name}_{i}", dpi=dpi, save=True, show=False)
+    CityNetwork.plot(routes=cluster_iteration, origins=origins, destinations=destinations, route_color_mask=color_mask, orig_color_mask=orig_color_mask, dest_color_mask=color_mask, fig_name=session_name, dpi=dpi, save=True, show=False)
 
-def multiplot_save(cluster_iterations, CityNetwork, destinations, closest_hub_func, colors, session_name, dpi=100, cpus=None, show=False):
+def multiplot_save(CityNetwork, cluster_iterations, origins_list, destinations, session_name_mask, color_masks, colors, dpi=100, cpus=None, show=False):
     """Plot and save multiple images with clusters and paths
 
     Args:
+        CitytNetwork : CityNetwork
+                The CityNetwork object used.
+                
         cluster_iteration : list
             The result of one cluster iteration using the multicore single
             shortest path computation.
@@ -120,14 +125,8 @@ def multiplot_save(cluster_iterations, CityNetwork, destinations, closest_hub_fu
         i : int
             Iteration idx
         
-        CitytNetwork : CityNetwork
-            The CityNetwork object used.
-        
         destinations : list of tuples
             All destinations in same order as in cluster_iteration.
-        
-        closest_hub_func : function
-            Function that is used to compute closest hubs.
         
         colors : list of strings
             Colors that should be used.
@@ -150,26 +149,25 @@ def multiplot_save(cluster_iterations, CityNetwork, destinations, closest_hub_fu
     if cpus is None:
         cpus = mp.cpu_count()
     cpus = min(cpus, mp.cpu_count())
+    
     print(f"Saving {len(cluster_iterations)} plots using {cpus} CPUs...")
 
     if cpus == 1:
-        if cluster_iterations is not None:
-            for i, iteration in enumerate(cluster_iterations):
-                print(f"Plotting figure {i}...")
-                closest_hubs, assigned_houses = closest_hub_func(iteration)
+        for (iteration, origins, color_mask, session_name) in zip(cluster_iterations, origins_list, color_masks, session_name_mask):
+            print(f"Plotting figure {session_name}...")
+            
+            orig_color_mask = []
+            for i in range(len(origins)):
+                orig_color_mask.append(colors[i % len(colors)])
 
-                cleaned_paths, destinations, color_mask, orig_color_mask = format_paths_for_plot(iteration, iteration.keys(), destinations, closest_hubs, assigned_houses, colors)
-
-                CityNetwork.plot(routes=cleaned_paths, origins=iteration.keys(), destinations=destinations, route_color_mask=color_mask, orig_color_mask=orig_color_mask, dest_color_mask=color_mask, fig_name=f"{session_name}_plot_{i}", dpi=dpi, save=True, show=False)
-        else:
-            CityNetwork.plot(routes=None, origins=iteration.keys(), destinations=destinations, route_color_mask=color_mask, orig_color_mask=orig_color_mask, dest_color_mask=color_mask, fig_name=f"{session_name}_plot_{i}", dpi=dpi, save=True, show=False)
+            CityNetwork.plot(routes=iteration, origins=origins, destinations=destinations, route_color_mask=color_mask, orig_color_mask=orig_color_mask, dest_color_mask=color_mask, fig_name=session_name, dpi=dpi, save=True, show=show)
     else:
         print("USER-WARNING: Make sure you put the multiplot function in a 'if __name__ == '__main__' statement!")
-        # If multi-threading, calculate shortest paths in parallel
+        # If multi-threading, calculate shortest paths in parallel       
         if cluster_iterations is not None:
-            args = ((iteration, i, CityNetwork, destinations, closest_hub_func, colors, session_name, dpi) for i, iteration in enumerate(cluster_iterations))
+            args = ((CityNetwork, iteration, i, origins, destinations, color_mask, colors, session_name, dpi) for i, (iteration, origins, color_mask, session_name) in enumerate(zip(cluster_iterations, origins_list, color_masks, session_name_mask)))
         else:
-            args = ((None, i, CityNetwork, destinations, closest_hub_func, colors, session_name, dpi) for i, _ in enumerate(cluster_iterations))
+            args = ((CityNetwork, None, i, origins, destinations, color_mask, colors, session_name, dpi) for i, (_, origins, color_mask, session_name) in enumerate(zip(cluster_iterations, origins_list, color_masks, session_name_mask)))
         pool = mp.Pool(cpus)
 
         sma = pool.starmap_async(_plot, tqdm.tqdm(args, total=len(cluster_iterations)))

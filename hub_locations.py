@@ -174,6 +174,14 @@ def main():
     # name - a name to enter to properly name the plot and to show as the plot title
     # cluster_iterations - which iteration the information is from, you can use this to look up the date from hub_locations_yx and closet_hub
     # for example if cluster_iterations = 0 then the corresponding information is hub_locations_yx[0] and closest_hub[0]
+    
+    #! Answer: the cleaned version of all paths in a list. 
+    # For hubs a list of lists with the hubs per iteration, this is the same as the 'path' column in the DataFrame
+    # Session name is still WIP
+    # ? closest hub input should be removed?
+    # hub_locations_yx is technically already in cluster iterations
+    
+    
     if visualize_clustering: unpack.multiplot_save(cluster_iterations, City, hub_locations_yx, closest_hub, hub_colors, session_name, dpi=300, cpus=None)
 
     
