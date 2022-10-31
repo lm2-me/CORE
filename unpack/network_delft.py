@@ -652,6 +652,11 @@ class CityNetwork():
         All class variables for plotting 
         """
         
+        # Set routes to None if no paths available
+        NoneValues = max(routes.count(np.nan), routes.count(None))
+        if len(routes) == NoneValues:
+            routes = None
+        
         if routes is not None:
             fig, ax = ox.plot_graph(self.graph, show=False, save=False, close=False,
                 figsize = self.figsize,
