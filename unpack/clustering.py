@@ -72,6 +72,14 @@ class NetworkClustering():
     def save_print_information(self, folder: str, step:str):
         print_info_df = pandas.DataFrame()
 
+        session_name = self.session_name
+        path = folder + session_name + '/Dataframe/'
+
+        if not os.path.exists(path): number = 0
+        else:
+            allfiles = [f for f in os.listdir(path) if os.path.isfile(os.path.join(path, f))]
+            number = len(allfiles)
+
         cluster_iteration_list = []
         color_mask_list = []
 
@@ -97,7 +105,7 @@ class NetworkClustering():
         if not os.path.exists(folder_path):
             os.makedirs(folder_path)   
 
-        object_name = str(self.name) + '_iteration ' + iteration_num + '_k-means_step ' + kmeans_num + '_' + step      
+        object_name = '{:03}'.format(number) + '_' + str(self.name) + '_iteration ' + iteration_num + '_k-means_step ' + kmeans_num + '_' + step      
         name = 'Iteration ' + iteration_num + ' K-Means Step ' + kmeans_num + ' ' + step
         name_list = []
         name_list.append(object_name)
@@ -421,7 +429,8 @@ class NetworkClustering():
         if time_check or long_travel and capacity_check and unassigned < (max_unassigned_percent * city_wide_people_served):
             fitness_check = True
         
-        print('average travel time {} seconds, max travel time {} seconds, average people served per hub {} people'.format(average_travel_time, max_time, average_capacity))
+        for i in range(len(average_list)):
+            print('for hub {}: average travel time {} seconds, max travel time {} seconds, average people served per hub {} people'.format(i, average_list[i], max_time_list[i], capacity_list[i]))
 
         return fitness_check, time_check
     
@@ -459,13 +468,19 @@ class NetworkClustering():
     def optimize_locations(self, City, session_name, data_folder, start_pt_ct, coordinates_transformed_xy,
         destinations, dest_edges, skip_non_shortest_input, skip_treshold_input, weight_input, cutoff_input, 
         max_additional_clusters, calc_euclid, orig_yx_transf, point_count, max_travel_time, max_distance, max_iterations,
-        max_cpu_count, hub_colors):
+        max_cpu_count, hub_colors, network_scale):
 
         #initialize variables
         iteration = self.iteration
         time_check = False
         fitness_check = False
         self.session_name = session_name
+
+        if max_additional_clusters < 2: max_additional_clusters = 2
+        if network_scale == 'small': cluster_value = 50
+        if network_scale == 'medium': cluster_value = 100
+        if network_scale == 'large': cluster_value = 200
+        if max_additional_clusters > cluster_value: max_additional_clusters = cluster_value
 
         while not fitness_check and iteration < max_additional_clusters:
             ### reset all DF values to default for iteration and update class properties
@@ -481,6 +496,7 @@ class NetworkClustering():
 
             if iteration == 1:           
                 # update number of CPUs to use based on number of clusters
+                #! Update CPU count here
                 if self.max_cores > start_pt_ct: cpu_count = start_pt_ct
                 else: cpu_count = self.max_cores
 
@@ -518,6 +534,7 @@ class NetworkClustering():
                 print('saved iteration ' + str(self.iteration) + ' locations 02')
 
                 # update number of CPUs to use based on number of clusters
+                #! Update CPU count here
                 if self.max_cores > self.cluster_number: cpu_count = self.cluster_number
                 else: cpu_count = self.max_cores
 

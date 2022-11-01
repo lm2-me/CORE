@@ -97,9 +97,10 @@ def main():
     #initialization variables
     max_cpu_count = None #input the maximum CPU cores, use None to automatically set to maximum available
     network_name = 'delft_center_walk'
-    cluster_name = 'delft_cluster'
+    cluster_name = 'delft_center_cluster'
     data_folder = 'data/'
     vehicle_type = 'walk' # walk, bike, drive, all (See osmnx documentation)
+    network_scale = 'medium' #set to 'large', 'medium', or 'small' based on the city size
     max_travel_time = 150 #time in seconds
     random_init = 100
     #shortest path settings
@@ -114,9 +115,10 @@ def main():
     ### Delft City Center #coordinates = [52.018347, 52.005217, 4.369142, 4.350504]
     ### Delft #coordinates = [52.03, 51.96, 4.4, 4.3]
     #[N, S, E, W] coordiantes of location to analyse
-    #coordinates = [52.018347, 52.005217, 4.369142, 4.350504]
-    coordinates = [52.03, 51.96, 4.4, 4.3]
+    coordinates = [52.018347, 52.005217, 4.369142, 4.350504]
+    #coordinates = [52.03, 51.96, 4.4, 4.3]
 
+    #! Increase the start_pt_ct to increase the number of hubs to initialize with, for larger networks set to a larger number
     start_pt_ct = 3 # number of starting hubs
     calc_euclid = False #also calculate euclidean distances for first iteration
     generate_new_network = False # if true, new network will be generated, otherwise set to false to only load a network
@@ -157,13 +159,17 @@ def main():
 
     #option to change/adjust these as clusering settings
     point_count = 1 #the number of new hubs to add when the fitness is not reached
+    #! Decrease max_distance to make the hub locations more accurate earlier (this variable is automatically decreased each itteration so as the hubs are more accurately placed as they get closer to the optimila number)
     max_distance = 50 #when distance the hub moves during k-means clustering, is less than max_distance, the hub will stop moving
-    max_iterations = 30 #maximum iterations in case the max_distance moves a lot for too long
-    max_additional_clusters = 2 #after adding this many new locations, the algorithm will stop use this to cut the algorithm before the optimial solution if time is a concern, if set above 50 it will be reset to 50
+    #! Increase max_iterations if the k-means clustering stops moving the hubs too fast
+    max_iterations = 50 #maximum iterations in case the max_distance moves a lot for too long
+    #! Increase the max_additional_clusters to allow the algorithm to place more hubs after the initialization
+    #! Based on the network_scale input, this variable will be reset to the following maximums (if the value set is less than the maximum, the entered value will be used): 50 if small network scale, 100 if medium network scale, 200 if large network scale
+    max_additional_clusters = 20 #after adding this many new locations, the algorithm will stop use this to cut the algorithm before the optimial solution if time is a concern, if set above 50 it will be reset to 50
 
     Clusters.optimize_locations(City, session_name, data_folder, start_pt_ct, coordinates_transformed_xy, destinations, 
         dest_edges, skip_non_shortest_input, skip_treshold_input, weight_input, cutoff_input, max_additional_clusters, 
-        calc_euclid, orig_yx_transf, point_count, max_travel_time, max_distance, max_iterations, max_cpu_count, hub_colors)
+        calc_euclid, orig_yx_transf, point_count, max_travel_time, max_distance, max_iterations, max_cpu_count, hub_colors, network_scale)
 
     print_df_files_path = data_folder + session_name + '/Dataframe/'
     cluster_iterations, file_name, hubs, title, colors = Clusters.load_files_for_plot(print_df_files_path)
