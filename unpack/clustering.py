@@ -352,16 +352,15 @@ class NetworkClustering():
 
 
     ### calculate the hub fitness
-    def hub_fitness(self, City, max_travel_time):
+    def hub_fitness(self, City, max_travel_time, max_people_served, capacity_factor):
         #change these values to adjust the fitnes
         max_unassigned_percent = 0.1 #percentage of people that can be unassigned to a hub
         max_long_walk_percent = 0.1 #percentage of people that can have long walks to hub
-        #one hub has the capacity for 2190 packages, assumed each person receives a package once every 3 days
-        max_people_served = 6570
 
         # find and save average time and people served to hub_dictionary
         hub_dictionary = self.hub_list_dictionary
         fitness_check = False
+        k_check = False
 
         max_time_list = []
         capacity_list = []
@@ -426,13 +425,15 @@ class NetworkClustering():
         average_capacity = np.sum(capacity_np) / len(capacity_np)
         capacity_check = all(i <= max_people_served for i in capacity_np)
 
+        k_check = all(i <= capacity_factor * max_people_served for i in capacity_np)
+
         if time_check or long_travel and capacity_check and unassigned < (max_unassigned_percent * city_wide_people_served):
             fitness_check = True
         
         for i in range(len(average_list)):
             print('for hub {}: average travel time {} seconds, max travel time {} seconds, average people served per hub {} people'.format(i, average_list[i], max_time_list[i], capacity_list[i]))
 
-        return fitness_check, time_check
+        return fitness_check, time_check, k_check
     
     ### load the CSV files and save to lists to input into the multiplot function
     def load_files_for_plot(self, path):
@@ -468,13 +469,14 @@ class NetworkClustering():
     def optimize_locations(self, City, session_name, data_folder, start_pt_ct, coordinates_transformed_xy,
         destinations, dest_edges, skip_non_shortest_input, skip_treshold_input, weight_input, cutoff_input, 
         max_additional_clusters, calc_euclid, orig_yx_transf, point_count, max_travel_time, max_distance, max_iterations,
-        max_cpu_count, hub_colors, network_scale):
+        max_cpu_count, hub_colors, network_scale, max_people_served, capacity_factor):
 
         #initialize variables
         iteration = self.iteration
         time_check = False
         fitness_check = False
         self.session_name = session_name
+        max_iterations_active = max_iterations
 
         if max_additional_clusters < 2: max_additional_clusters = 2
         if network_scale == 'small': cluster_value = 50
@@ -559,7 +561,7 @@ class NetworkClustering():
             move_distance = self.new_hub_location(City)
             i = 0
             self.kmeansstep = i
-            while move_distance > max_distance and i < max_iterations:
+            while move_distance > max_distance and i < max_iterations_active:
                 paths = multicore_single_source_shortest_path(City.graph, self.hub_list_dictionary, destinations, dest_edges,
                     skip_non_shortest=skip_non_shortest_input, 
                     skip_treshold=skip_treshold_input,
@@ -572,7 +574,9 @@ class NetworkClustering():
                 move_distance = self.new_hub_location(City)
                 self.save_print_information(data_folder, '04_kmeans')
                 print('moved hubs on average ', move_distance, 'meters')
-                self.hub_fitness(City, max_travel_time)
+                _, _, k_check = self.hub_fitness(City, max_travel_time, max_people_served, capacity_factor)
+
+                if not k_check: max_iterations_active = 2
 
                 i += 1
                 self.kmeansstep = i
@@ -581,8 +585,11 @@ class NetworkClustering():
             print('saved iteration ' + str(self.iteration) + ' clusters final 05')
             
             ###check fitness function
-            fitness_check, time_check = self.hub_fitness(City, max_travel_time)
+            fitness_check, _, _ = self.hub_fitness(City, max_travel_time, max_people_served, capacity_factor)
             iteration += 1
-            if max_distance -3 > 0: max_distance -= 3
-            else: max_distance = 5
-            max_iterations += 10
+            if max_distance*0.9 > 0: max_distance = max_distance*0.9
+            else: max_distance = 1
+            max_iterations_active = max_iterations
+            max_iterations_active += 10
+
+            print('max distance updated to ', max_distance)

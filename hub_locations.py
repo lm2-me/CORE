@@ -102,6 +102,10 @@ def main():
     vehicle_type = 'walk' # walk, bike, drive, all (See osmnx documentation)
     network_scale = 'medium' #set to 'large', 'medium', or 'small' based on the city size
     max_travel_time = 150 #time in seconds
+    #! per our call update these to adjust hub capacity and to restart clustering faster when k isn't close to the right amount
+    max_people_served = 6570 #one hub has the capacity for 2190 packages, 6570 capacity assumes each person receives a package once every 3 days
+    capacity_factor = 1.2 #add a factor that checks if the number of clusters is close to the required number, if it is not, then it will add more hubs with minimal hub location optimization
+    #capacity_factor is multiplication based so entering 2 will means if the hub capacity is greater than 2* the max_people_served, then k will increase
     random_init = 100
     #shortest path settings
     skip_non_shortest_input = False
@@ -127,7 +131,7 @@ def main():
 
     #enter color pallet to use for plotting
     hub_colors = ['#FFE54F', '#82C5DA', '#C90808', '#FAA12A', '#498591', '#E64C4C', '#E4FFFF', '#CA5808', '#3F4854']
-    
+
     ###### ------- ######
     
     random.seed(random_init)
@@ -169,7 +173,8 @@ def main():
 
     Clusters.optimize_locations(City, session_name, data_folder, start_pt_ct, coordinates_transformed_xy, destinations, 
         dest_edges, skip_non_shortest_input, skip_treshold_input, weight_input, cutoff_input, max_additional_clusters, 
-        calc_euclid, orig_yx_transf, point_count, max_travel_time, max_distance, max_iterations, max_cpu_count, hub_colors, network_scale)
+        calc_euclid, orig_yx_transf, point_count, max_travel_time, max_distance, max_iterations, max_cpu_count, hub_colors, 
+        network_scale, max_people_served, capacity_factor)
 
     print_df_files_path = data_folder + session_name + '/Dataframe/'
     cluster_iterations, file_name, hubs, title, colors = Clusters.load_files_for_plot(print_df_files_path)
