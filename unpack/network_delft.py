@@ -655,16 +655,9 @@ class CityNetwork():
         All class variables for plotting 
         """
 
-        # Set routes to None if no paths available        
-        no_NaN = True  
-        for route in routes:
-            if no_NaN:
-                if not str(route) == 'nan':
-                    no_NaN = False
-                    
-        if no_NaN:
-            print('yes')
-            return
+        # Set routes to None if no paths available                
+        if routes.count(None) == len(routes):
+            routes = None
         
         if routes is not None:
             fig, ax = ox.plot_graph(self.graph, show=False, save=False, close=False,
@@ -708,6 +701,10 @@ class CityNetwork():
 
                 for route, route_color in zip(routes, route_color_mask):
                     weight, route_nodes, ls_orig, ls_dest = route
+                    
+                    # If no route color, use self.route_color
+                    if route_color == None:
+                        route_color = self.route_color
 
                     x, y  = [], []
                     for u, v in zip(route_nodes[:-1], route_nodes[1:]):
@@ -752,15 +749,16 @@ class CityNetwork():
         if origins is not None:
             if orig_color_mask == None:
                 for orig in origins:
-                    ax.scatter(orig[1], orig[0], color=self.origin_color, marker='.', s=50, label='orig-point')
+                    if orig is not None:
+                        ax.scatter(orig[1], orig[0], color=self.origin_color, marker='.', s=50, label='orig-point')
             # Use color mask for origins
             else:
                 if len(origins) != len(orig_color_mask):
                     raise ValueError("Origins and orig_color_mask should have same length.")
 
-                print(origins)
                 for orig, orig_color in zip(origins, orig_color_mask):
-                    ax.scatter(orig[1], orig[0], color=orig_color, marker='.', s=50, label='orig-point')
+                    if orig is not None:
+                        ax.scatter(orig[1], orig[0], color=orig_color, marker='.', s=50, label='orig-point')
 
         # Plot the destinations with an x mark
         if destinations is not None:
@@ -773,7 +771,10 @@ class CityNetwork():
                     raise ValueError("Destinations and dest_color_mask should have same length.")
 
                 for dest, dest_color in zip(destinations, dest_color_mask):
-                    ax.scatter(dest[1], dest[0], color=dest_color, marker='.', s=3, label='orig-point')
+                    if dest_color is not None:
+                        ax.scatter(dest[1], dest[0], color=dest_color, marker='.', s=3, label='dest-point')
+                    else:
+                        ax.scatter(dest[1], dest[0], color=self.destination_color, marker='.', s=3, label='dest-point')
 
         # Add annotations to the edges, can be names, travel_times etc.
         if annotations:

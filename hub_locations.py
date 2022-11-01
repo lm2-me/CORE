@@ -173,7 +173,7 @@ def main():
     for i, row in City.building_addr_df.iterrows():
         destinations.append((row['y'], row['x']))
 
-    if visualize_clustering: unpack.multiplot_save(City, cluster_iterations, hubs, destinations, file_name, colors, hub_colors, cpus=1)
+    if visualize_clustering: unpack.multiplot_save(City, cluster_iterations, hubs, destinations, file_name, colors, hub_colors, cpus=6)
     
 if __name__ == '__main__':
     main()

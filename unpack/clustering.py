@@ -191,7 +191,7 @@ class NetworkClustering():
             hub_assignments_df['Euclid_hubdistance'].values[:] = np.inf
 
         if 'Color_mask' not in hub_assignments_df:
-            value = ['White'] * len(City.building_addr_df)
+            value = [None] * len(City.building_addr_df)
             hub_assignments_df['Color_mask'] = value
         else:
             hub_assignments_df['Path'].values[:] = None
