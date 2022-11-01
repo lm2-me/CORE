@@ -79,7 +79,6 @@ class NetworkClustering():
             cluster_iteration_list.append(row['Path'])
             color_mask_list.append(row['Color_mask'])
 
-        print(cluster_iteration_list)
         print_info_df['path'] = cluster_iteration_list
         print_info_df['color_mask'] = color_mask_list
 
@@ -94,7 +93,7 @@ class NetworkClustering():
         iteration_num = '{:03}'.format(iteration)
         kmeans = self.kmeansstep
         kmeans_num = '{:03}'.format(kmeans)
-        folder_path = folder + session_name + '/CSV/'
+        folder_path = folder + session_name + '/Dataframe/'
         if not os.path.exists(folder_path):
             os.makedirs(folder_path)   
 
@@ -113,7 +112,7 @@ class NetworkClustering():
         print_info_df['title'] = title_list
         
         path = folder_path + object_name
-        print_info_df.to_csv(path+'.csv')
+        print_info_df.to_pickle(path + '.pkl')
         
         print('Saving {}'.format(object_name))
     
@@ -441,7 +440,7 @@ class NetworkClustering():
             file_hubs = []
             file_colors = []
 
-            current_df = pd.read_csv(path + file)
+            current_df = pd.read_pickle(path + file)
 
             for _, row in current_df.iterrows():
                 file_cluster_iterations.append(row['path'])

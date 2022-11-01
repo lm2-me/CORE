@@ -165,8 +165,8 @@ def main():
         dest_edges, skip_non_shortest_input, skip_treshold_input, weight_input, cutoff_input, max_additional_clusters, 
         calc_euclid, orig_yx_transf, point_count, max_travel_time, max_distance, max_iterations, max_cpu_count, hub_colors)
 
-    print_csv_files_path = data_folder + session_name + '/CSV/'
-    cluster_iterations, file_name, hubs, title, colors = Clusters.load_files_for_plot(print_csv_files_path)
+    print_df_files_path = data_folder + session_name + '/Dataframe/'
+    cluster_iterations, file_name, hubs, title, colors = Clusters.load_files_for_plot(print_df_files_path)
     
     print('final hub locations and information', Clusters.hub_list_dictionary)
     destinations = []
