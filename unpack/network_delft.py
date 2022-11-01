@@ -30,12 +30,15 @@ Classes:
         >>> plot: plot city graph without routes
 """
 
+from math import nan
 import osmnx as ox
 import networkx as nx
 import os.path
 import pickle
 import time
 import overpy
+
+import math
 
 from .utils import multicore_shortest_path
 from .utils.multicore_nearest_edges import multicore_nearest_edge
@@ -651,11 +654,17 @@ class CityNetwork():
             
         All class variables for plotting 
         """
-        
-        # Set routes to None if no paths available
-        NoneValues = max(routes.count(np.nan), routes.count(None))
-        if len(routes) == NoneValues:
-            routes = None
+
+        # Set routes to None if no paths available        
+        no_NaN = True  
+        for route in routes:
+            if no_NaN:
+                if not str(route) == 'nan':
+                    no_NaN = False
+                    
+        if no_NaN:
+            print('yes')
+            return
         
         if routes is not None:
             fig, ax = ox.plot_graph(self.graph, show=False, save=False, close=False,
@@ -749,6 +758,7 @@ class CityNetwork():
                 if len(origins) != len(orig_color_mask):
                     raise ValueError("Origins and orig_color_mask should have same length.")
 
+                print(origins)
                 for orig, orig_color in zip(origins, orig_color_mask):
                     ax.scatter(orig[1], orig[0], color=orig_color, marker='.', s=50, label='orig-point')
 
