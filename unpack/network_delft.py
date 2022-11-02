@@ -825,11 +825,8 @@ class CityNetwork():
         path = folder + str(object_name) + '.pkl'
 
         print("Loading...")
-        print('path', path)
         with open(path, 'rb') as file:
-            print('file', file)
             graph = pickle.load(file)
-            print('opened')
         
         print('Loaded {} to object...'.format(object_name))
         

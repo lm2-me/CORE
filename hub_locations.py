@@ -19,6 +19,7 @@ Other functions:
 
 import math as m
 import random
+import pandas as pd
 
 import unpack.utils.network_helpers as h
 from re import X
@@ -27,7 +28,6 @@ from unpack.network_delft import CityNetwork
 from unpack.utils.utils.timer import timer_decorator
 from unpack.clustering import NetworkClustering
 from unpack.utils.multicore_shortest_path import transform_coordinates
-
 
 def generate_network(name, data_folder, vehicle_type, coordinates):
     ### Job's Code: generate network function
@@ -106,6 +106,7 @@ def main():
     max_people_served = 6570 #one hub has the capacity for 2190 packages, 6570 capacity assumes each person receives a package once every 3 days
     capacity_factor = 1.2 #add a factor that checks if the number of clusters is close to the required number, if it is not, then it will add more hubs with minimal hub location optimization
     #capacity_factor is multiplication based so entering 2 will means if the hub capacity is greater than 2 * max_people_served, then k will increase
+    distance_decrease_factor = 0.9
     random_init = 100
     #shortest path settings
     skip_non_shortest_input = False
@@ -147,10 +148,11 @@ def main():
     ### load network from file, run after network is generated
     City, orig_yx_transf = load_network(network_name, data_folder)
     destinations = City.get_yx_destinations()
-    dest_edges = City.nearest_edges(5, cpus=12)
-    City.save_graph(network_name, data_folder)
+    # dest_edges = City.nearest_edges(5, cpus=12)
+    # City.save_graph(network_name, data_folder)
     dest_edges = City.ne
 
+    print('------------------------------------\n')
     ###initiate clustering
     Clusters = NetworkClustering(cluster_name)
     Clusters.reset_hub_df(City)
@@ -174,17 +176,19 @@ def main():
     Clusters.optimize_locations(City, session_name, data_folder, start_pt_ct, coordinates_transformed_xy, destinations, 
         dest_edges, skip_non_shortest_input, skip_treshold_input, weight_input, cutoff_input, max_additional_clusters, 
         calc_euclid, orig_yx_transf, point_count, max_travel_time, max_distance, max_iterations, max_cpu_count, hub_colors, 
-        network_scale, max_people_served, capacity_factor)
+        network_scale, max_people_served, capacity_factor, distance_decrease_factor)
 
     print_df_files_path = data_folder + session_name + '/Dataframe/'
     cluster_iterations, file_name, hubs, title, colors = Clusters.load_files_for_plot(print_df_files_path)
     
-    print('final hub locations and information', Clusters.hub_list_dictionary)
+    print('Final hub locations and information:')
+    print(pd.DataFrame(dict(Clusters.hub_list_dictionary)).T.astype({'index' : int}))
+    
     destinations = []
     for i, row in City.building_addr_df.iterrows():
         destinations.append((row['y'], row['x']))
 
-    if visualize_clustering: unpack.multiplot_save(City, cluster_iterations, hubs, destinations, file_name, colors, hub_colors, cpus=6)
+    if visualize_clustering: unpack.multiplot_save(City, cluster_iterations, hubs, destinations, file_name, colors, hub_colors, cpus=None)
     
 if __name__ == '__main__':
     main()

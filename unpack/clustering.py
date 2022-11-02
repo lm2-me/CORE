@@ -62,12 +62,13 @@ class NetworkClustering():
 
         object_name = str(self.name) + '_iteration ' + str(iteration_num) + '_' + step
         path = folder_path + object_name + '.pkl'
-        print('Saving {} to {}'.format(object_name, path))
+        print('Saving {} to {}'.format(object_name + str('.pkl'), path))
 
         with open(path, 'wb') as file:
             pickle.dump(self, file, pickle.HIGHEST_PROTOCOL)
         
         if not 'initialize' in object_name: self.save_print_information(folder, step)
+        print('Iteration state saved as .pkl file')
     
     def save_print_information(self, folder: str, step:str):
         print_info_df = pandas.DataFrame()
@@ -122,7 +123,7 @@ class NetworkClustering():
         path = folder_path + object_name
         print_info_df.to_pickle(path + '.pkl')
         
-        print('Saving {}'.format(object_name))
+        print('Saving {}.pkl'.format(object_name))
     
     def continue_clustering(self, path: str):
         if os.path.isfile(path):
@@ -208,7 +209,11 @@ class NetworkClustering():
 
     ### generate random points within the boundary of the loaded city at which to place hub locations
     def generate_random_points(self, City, coordinates_transformed_xy, start_pt_ct, orig_yx_transf, zero_people_hubs):
-        print('adding points to hub dictionary', self.hub_list_dictionary)
+        # Print current hub_dictionary state
+        if self.hub_list_dictionary is not None:
+            print('Adding points to hub dictionary:')
+            print(pd.DataFrame(dict(self.hub_list_dictionary)).T.astype({'index' : int}))
+            print('')
 
         coordinates_as_tupple = []
         changed_points = []
@@ -240,8 +245,8 @@ class NetworkClustering():
                     "index": index,
                     "x": x,
                     "y": y,
-                    "avg_time": 0,
-                    "max_time": 0,
+                    "avg_weight": 0,
+                    "max_weight": 0,
                     "people_served": 0
                 } 
             index += 1
@@ -291,8 +296,8 @@ class NetworkClustering():
                     "index": index,
                     "x": x,
                     "y": y,
-                    "avg_time": 0,
-                    "max_time": 0,
+                    "avg_weight": 0,
+                    "max_weight": 0,
                     "people_served": 0,
                 } 
             index += 1
@@ -419,8 +424,8 @@ class NetworkClustering():
             capacity_list.append(total_people)
             average_list.append(average)
 
-            hub_dictionary[hub_name]['avg_time'] = average
-            hub_dictionary[hub_name]['max_time'] = np.max(all_times_np)
+            hub_dictionary[hub_name]['avg_weight'] = average
+            hub_dictionary[hub_name]['max_weight'] = np.max(all_times_np)
             hub_dictionary[hub_name]['people_served'] = total_people
         
         #more weight based on shortestest travel
@@ -450,9 +455,9 @@ class NetworkClustering():
             fitness_check = True
         
         for i in range(len(average_list)):
-            print('for hub {}: average travel time {} seconds, max travel time {} seconds, average people served per hub {} people'.format(i, average_list[i], max_time_list[i], capacity_list[i]))
+            print('Hub {}: avg. weight: {}, max weight {}, avg. people served per hub: {}'.format(i, round(average_list[i], 2), round(max_time_list[i], 2), round(capacity_list[i], 2)))
 
-        if len(zero_people_hubs)> 0: print('the following hubs have no users assigned: {}. This/these hub location(s) will be replaced with new location(s) in next itteration.'.format(zero_people_hubs))
+        if len(zero_people_hubs)> 0: print('The following hubs have no users assigned: {}. This/these hub location(s) will be replaced with new location(s) in next itteration.'.format(zero_people_hubs))
 
         return fitness_check, time_check, k_check, zero_people_hubs
     
@@ -490,7 +495,7 @@ class NetworkClustering():
     def optimize_locations(self, City, session_name, data_folder, start_pt_ct, coordinates_transformed_xy,
         destinations, dest_edges, skip_non_shortest_input, skip_treshold_input, weight_input, cutoff_input, 
         max_additional_clusters, calc_euclid, orig_yx_transf, point_count, max_travel_time, max_distance, max_iterations,
-        max_cpu_count, hub_colors, network_scale, max_people_served, capacity_factor):
+        max_cpu_count, hub_colors, network_scale, max_people_served, capacity_factor, distance_decrease_factor):
 
         #initialize variables
         iteration = self.iteration
@@ -507,8 +512,9 @@ class NetworkClustering():
         if max_additional_clusters > cluster_value: max_additional_clusters = cluster_value
 
         while not fitness_check and iteration < max_additional_clusters:
+            print(f'Running k iteration {start_pt_ct - 1 + iteration} step 0...')
+            
             ### reset all DF values to default for iteration and update class properties
-            print('iteration: ', iteration)
             if max_additional_clusters > 50: max_additional_clusters = 50
             self.reset_hub_df(City)
             self.iteration = iteration
@@ -516,9 +522,8 @@ class NetworkClustering():
             self.max_cores = max_cpu_count
             ### save class object to restart clustering for an iteration
             self.save_iteration(data_folder, '01_initialize')
-            print('saved iteration ' + str(self.iteration) + ' initialize 01')
-
-            if iteration == 1:           
+            
+            if iteration == 1:
                 # update number of CPUs to use based on number of clusters
                 #! Update CPU count here
                 if self.max_cores > start_pt_ct: cpu_count = start_pt_ct
@@ -529,8 +534,12 @@ class NetworkClustering():
                 self.cluster_number = start_pt_ct
 
                 self.save_iteration(data_folder, '02_locations')
-                print('saved iteration ' + str(self.iteration) + ' locations 02')
-                print(self.hub_list_dictionary) 
+                
+                # Print results
+                print('')
+                print(pd.DataFrame(dict(self.hub_list_dictionary)).T.astype({'index' : int}))
+                print('')
+                
                 paths = multicore_single_source_shortest_path(City.graph, self.hub_list_dictionary, destinations, dest_edges,
                     skip_non_shortest=skip_non_shortest_input, 
                     skip_treshold=skip_treshold_input,
@@ -543,9 +552,7 @@ class NetworkClustering():
                 if calc_euclid:
                     self.hub_clusters_euclidean(orig_yx_transf)
                     self.save_iteration(data_folder, '03_cluster_euclid')
-                    print('saved iteration ' + str(self.iteration) + ' cluster euclid 03')
                 self.save_iteration(data_folder, '03_cluster')
-                print('saved iteration ' + str(self.iteration) + ' cluster 03')
                 self.max_cores = cpu_count
                 
             else:        
@@ -556,9 +563,11 @@ class NetworkClustering():
                     hubs[point[0]] = point[1]
 
                 self.cluster_number += point_count
-                print('added hub(s)', self.hub_list_dictionary)
+                print('Added hub(s):')
+                print(pd.DataFrame(dict(self.hub_list_dictionary)).T.astype({'index' : int}))
+                print('')
+                
                 self.save_iteration(data_folder, '02_locations')
-                print('saved iteration ' + str(self.iteration) + ' locations 02')
 
                 # update number of CPUs to use based on number of clusters
                 #! Update CPU count here
@@ -577,16 +586,18 @@ class NetworkClustering():
                 if calc_euclid:
                     self.hub_clusters_euclidean(orig_yx_transf)
                     self.save_iteration(data_folder, '03_clusters_euclid')
-                    print('saved iteration ' + str(self.iteration) + ' clusters euclid 03')
                 self.save_iteration(data_folder, '03_clusters')
-                print('saved iteration ' + str(self.iteration) + ' clusters 03')
                 self.max_cores = cpu_count
+
+            print('------------------------------------\n')
 
             ###optimize hub locations
             move_distance = self.new_hub_location(City)
             i = 0
             self.kmeansstep = i
             while move_distance > max_distance and i < max_iterations_active:
+                print(f'Running k iteration {start_pt_ct - 1 + iteration} optimization step {i + 1}...')
+                
                 paths = multicore_single_source_shortest_path(City.graph, self.hub_list_dictionary, destinations, dest_edges,
                     skip_non_shortest=skip_non_shortest_input, 
                     skip_treshold=skip_treshold_input,
@@ -598,24 +609,25 @@ class NetworkClustering():
                 if calc_euclid: self.hub_clusters_euclidean(orig_yx_transf)
                 move_distance = self.new_hub_location(City)
                 self.save_print_information(data_folder, '04_kmeans')
-                print('moved hubs on average ', move_distance, 'meters')
+                print(f'Moved hubs on average {round(move_distance, 2)} meters')
                 _, _, k_check, _ = self.hub_fitness(City, max_travel_time, max_people_served, capacity_factor)
 
                 if not k_check: max_iterations_active = 2
 
                 i += 1
                 self.kmeansstep = i
-
+                print('------------------------------------\n')
+                
             self.save_iteration(data_folder, '05_clusters_final')
-            print('saved iteration ' + str(self.iteration) + ' clusters final 05')
             
             ###check fitness function
             fitness_check, _, _, zero_people_hubs = self.hub_fitness(City, max_travel_time, max_people_served, capacity_factor)
 
             iteration += 1
-            if max_distance*0.9 > 0: max_distance = max_distance*0.9
+            if max_distance*distance_decrease_factor > 0: max_distance = max_distance*distance_decrease_factor
             else: max_distance = 1
             max_iterations_active = max_iterations
             max_iterations_active += 10
-
-            print('max distance updated to ', max_distance)
+                
+            print(f'Max distance updated to {max_distance}')
+            print('------------------------------------\n')
