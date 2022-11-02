@@ -143,7 +143,6 @@ class NetworkClustering():
     def reset_hub_df(self, City):
         hub_assignments_df = self.hub_assignments_df
 
-        print("Loading hubs...")
         if 'Nearest_hub_idx' not in hub_assignments_df:
             nearest_hub_indx = [0] * len(City.building_addr_df)
             hub_assignments_df['Nearest_hub_idx'] = nearest_hub_indx
@@ -208,10 +207,11 @@ class NetworkClustering():
         self.hub_assignments_df = hub_assignments_df
 
     ### generate random points within the boundary of the loaded city at which to place hub locations
-    def generate_random_points(self, City, coordinates_transformed_xy, start_pt_ct, orig_yx_transf):
+    def generate_random_points(self, City, coordinates_transformed_xy, start_pt_ct, orig_yx_transf, zero_people_hubs):
         print('adding points to hub dictionary', self.hub_list_dictionary)
 
         coordinates_as_tupple = []
+        changed_points = []
 
         #[N, S, E, W]
         #w_n_corner, e_n_corner, w_s_corner, e_s_corner
@@ -249,6 +249,17 @@ class NetworkClustering():
 
         else:
             index = len(self.hub_list_dictionary)
+        
+        
+        if len(zero_people_hubs) > 0:
+            for hub in zero_people_hubs:
+                x = random.uniform(coordinateX_min, coordinateX_max)
+                y = random.uniform(coordinateY_min, coordinateY_max)
+                self.hub_list_dictionary[hub]['x'] = x
+                self.hub_list_dictionary[hub]['x'] = y
+                index = self.hub_list_dictionary[hub]['index']
+                changed_points.append([index, (y,x)])
+                print(changed_points)
 
         ### k-means ++ to initialize better starting hub locations
         for i in range(start_pt_ct):
@@ -286,7 +297,7 @@ class NetworkClustering():
                 } 
             index += 1
 
-        return coordinates_as_tupple
+        return coordinates_as_tupple, changed_points
 
     ### cluster houses to each hub based on the euclidean distance to each hub
     def hub_clusters_euclidean(self, orig_yx_transf):
@@ -344,11 +355,12 @@ class NetworkClustering():
         return move_distance
 
     ### add new random hub points
-    def add_points(self, City, coordinates_transformed_xy, point_count, orig_yx_transf, data_folder):
+    def add_points(self, City, coordinates_transformed_xy, point_count, orig_yx_transf, zero_people_hubs):
         print('adding ', point_count, ' point(s)')
-        add_points = self.generate_random_points(City, coordinates_transformed_xy, point_count, orig_yx_transf)
 
-        return add_points
+        add_points, changed_points = self.generate_random_points(City, coordinates_transformed_xy, point_count, orig_yx_transf, zero_people_hubs)
+
+        return add_points, changed_points
 
 
     ### calculate the hub fitness
@@ -367,7 +379,9 @@ class NetworkClustering():
         average_list = []
         city_wide_people_served = 0
         unassigned = 0
-        
+
+        zero_people_hubs = []
+
         for (hub_name, _) in hub_dictionary.items():
             all_times = []
             all_people = []
@@ -385,6 +399,11 @@ class NetworkClustering():
                     city_wide_people_served += people
                 if row['Nearest_hub_name'] == None:
                     unassigned += 1
+                    all_times.append(0)
+
+            if len(all_times) == 0:
+                all_times.append(0)
+                zero_people_hubs.append(hub_name)
 
             #time
             all_times_np = np.array(all_times)
@@ -433,7 +452,9 @@ class NetworkClustering():
         for i in range(len(average_list)):
             print('for hub {}: average travel time {} seconds, max travel time {} seconds, average people served per hub {} people'.format(i, average_list[i], max_time_list[i], capacity_list[i]))
 
-        return fitness_check, time_check, k_check
+        if len(zero_people_hubs)> 0: print('the following hubs have no users assigned: {}. This/these hub location(s) will be replaced with new location(s) in next itteration.'.format(zero_people_hubs))
+
+        return fitness_check, time_check, k_check, zero_people_hubs
     
     ### load the CSV files and save to lists to input into the multiplot function
     def load_files_for_plot(self, path):
@@ -477,6 +498,7 @@ class NetworkClustering():
         fitness_check = False
         self.session_name = session_name
         max_iterations_active = max_iterations
+        zero_people_hubs = []
 
         if max_additional_clusters < 2: max_additional_clusters = 2
         if network_scale == 'small': cluster_value = 50
@@ -503,7 +525,7 @@ class NetworkClustering():
                 else: cpu_count = self.max_cores
 
                 ### only on first iteration generate random points for hubs and cluster houses based on closest hub
-                hubs = self.generate_random_points(City, coordinates_transformed_xy, start_pt_ct, orig_yx_transf)
+                hubs,_ = self.generate_random_points(City, coordinates_transformed_xy, start_pt_ct, orig_yx_transf, zero_people_hubs)
                 self.cluster_number = start_pt_ct
 
                 self.save_iteration(data_folder, '02_locations')
@@ -526,10 +548,13 @@ class NetworkClustering():
                 print('saved iteration ' + str(self.iteration) + ' cluster 03')
                 self.max_cores = cpu_count
                 
-            else:           
+            else:        
                 ### on all other iterations, add a new hub each time the while loop runs 
-                additional_points = self.add_points(City, coordinates_transformed_xy, point_count, orig_yx_transf, data_folder)
+                additional_points, changed_points = self.add_points(City, coordinates_transformed_xy, point_count, orig_yx_transf, zero_people_hubs)
                 hubs = hubs + additional_points
+                for point in changed_points:
+                    hubs[point[0]] = point[1]
+
                 self.cluster_number += point_count
                 print('added hub(s)', self.hub_list_dictionary)
                 self.save_iteration(data_folder, '02_locations')
@@ -574,7 +599,7 @@ class NetworkClustering():
                 move_distance = self.new_hub_location(City)
                 self.save_print_information(data_folder, '04_kmeans')
                 print('moved hubs on average ', move_distance, 'meters')
-                _, _, k_check = self.hub_fitness(City, max_travel_time, max_people_served, capacity_factor)
+                _, _, k_check, _ = self.hub_fitness(City, max_travel_time, max_people_served, capacity_factor)
 
                 if not k_check: max_iterations_active = 2
 
@@ -585,7 +610,8 @@ class NetworkClustering():
             print('saved iteration ' + str(self.iteration) + ' clusters final 05')
             
             ###check fitness function
-            fitness_check, _, _ = self.hub_fitness(City, max_travel_time, max_people_served, capacity_factor)
+            fitness_check, _, _, zero_people_hubs = self.hub_fitness(City, max_travel_time, max_people_served, capacity_factor)
+
             iteration += 1
             if max_distance*0.9 > 0: max_distance = max_distance*0.9
             else: max_distance = 1

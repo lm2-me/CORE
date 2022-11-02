@@ -105,7 +105,7 @@ def main():
     #! per our call update these to adjust hub capacity and to restart clustering faster when k isn't close to the right amount
     max_people_served = 6570 #one hub has the capacity for 2190 packages, 6570 capacity assumes each person receives a package once every 3 days
     capacity_factor = 1.2 #add a factor that checks if the number of clusters is close to the required number, if it is not, then it will add more hubs with minimal hub location optimization
-    #capacity_factor is multiplication based so entering 2 will means if the hub capacity is greater than 2* the max_people_served, then k will increase
+    #capacity_factor is multiplication based so entering 2 will means if the hub capacity is greater than 2 * max_people_served, then k will increase
     random_init = 100
     #shortest path settings
     skip_non_shortest_input = False
