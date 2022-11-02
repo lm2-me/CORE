@@ -109,10 +109,12 @@ def main():
     distance_decrease_factor = 0.9
     random_init = 100
     #shortest path settings
-    skip_non_shortest_input = False
-    skip_treshold_input = 60
-    weight_input = 'travel_time'
-    cutoff_input = None
+    skip_non_shortest = False
+    skip_treshold = 60
+    weight = 'travel_time'
+    cutoff = None
+    max_unassigned_percent = 0.1 #percentage of people that can be unassigned to a hub
+    max_long_walk_percent = 0.1 #percentage of people that can have long walks to hub
 
     # Give a name, to avoid overwriting your plots
     session_name = input("Please insert a unique name for this clustering session: ")
@@ -140,7 +142,7 @@ def main():
     coordinates_list = h.coordinates_to_tupple(coordinates)
     coordinates_list_flip = h.flip_lat_long(coordinates_list)
     coordinates_transformed_yx = transform_coordinates(coordinates_list_flip)
-    coordinates_transformed_xy = h.flip_lat_long(coordinates_transformed_yx)
+    coordinates = h.flip_lat_long(coordinates_transformed_yx)
 
     ### generate new network, only runs if variable is set to true
     if generate_new_network: generate_network(network_name, data_folder, vehicle_type, coordinates)
@@ -173,10 +175,7 @@ def main():
     #! Based on the network_scale input, this variable will be reset to the following maximums (if the value set is less than the maximum, the entered value will be used): 50 if small network scale, 100 if medium network scale, 200 if large network scale
     max_additional_clusters = 20 #after adding this many new locations, the algorithm will stop use this to cut the algorithm before the optimial solution if time is a concern, if set above 50 it will be reset to 50
 
-    Clusters.optimize_locations(City, session_name, data_folder, start_pt_ct, coordinates_transformed_xy, destinations, 
-        dest_edges, skip_non_shortest_input, skip_treshold_input, weight_input, cutoff_input, max_additional_clusters, 
-        calc_euclid, orig_yx_transf, point_count, max_travel_time, max_distance, max_iterations, max_cpu_count, hub_colors, 
-        network_scale, max_people_served, capacity_factor, distance_decrease_factor)
+    Clusters.optimize_locations(City, session_name, data_folder, start_pt_ct, coordinates, destinations, skip_non_shortest, skip_treshold, weight, cutoff, orig_yx_transf, point_count, max_travel_time, max_cpu_count, hub_colors)
 
     print_df_files_path = data_folder + session_name + '/Dataframe/'
     cluster_iterations, file_name, hubs, title, colors = Clusters.load_files_for_plot(print_df_files_path)

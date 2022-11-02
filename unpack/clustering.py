@@ -447,7 +447,8 @@ class NetworkClustering():
 
         k_check = all(i <= capacity_factor * max_people_served for i in capacity_np)
 
-        print(time_check, long_travel, capacity_check, unassigned < (max_unassigned_percent * city_wide_people_served))
+        print(f'Time_check: {time_check}, Long_travel_check{long_travel}, Capacity_check{capacity_check}, Unassigned_check: {unassigned < (max_unassigned_percent * city_wide_people_served)}')
+        
         if (time_check or long_travel) and capacity_check and (unassigned < (max_unassigned_percent * city_wide_people_served)):
             fitness_check = True
         
@@ -456,7 +457,6 @@ class NetworkClustering():
 
         if len(zero_people_hubs)> 0: print('The following hubs have no users assigned: {}. This/these hub location(s) will be replaced with new location(s) in next itteration.'.format(zero_people_hubs))
 
-        print(fitness_check, time_check, k_check, zero_people_hubs)
         return fitness_check, time_check, k_check, zero_people_hubs
     
     ### load the CSV files and save to lists to input into the multiplot function
@@ -638,5 +638,5 @@ class NetworkClustering():
             max_iterations_active = max_iterations
             max_iterations_active += 10
                 
-            print(f'Max distance updated to {max_distance}')
+            print(f'Max distance updated to {round(max_distance, 2)}')
             print('------------------------------------\n')
