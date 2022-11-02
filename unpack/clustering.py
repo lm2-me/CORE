@@ -361,7 +361,7 @@ class NetworkClustering():
 
     ### add new random hub points
     def add_points(self, City, coordinates_transformed_xy, point_count, orig_yx_transf, zero_people_hubs):
-        print('adding ', point_count, ' point(s)')
+        print('Adding ', point_count, ' point(s)')
 
         add_points, changed_points = self.generate_random_points(City, coordinates_transformed_xy, point_count, orig_yx_transf, zero_people_hubs)
 
@@ -369,11 +369,7 @@ class NetworkClustering():
 
 
     ### calculate the hub fitness
-    def hub_fitness(self, City, max_travel_time, max_people_served, capacity_factor):
-        #change these values to adjust the fitnes
-        max_unassigned_percent = 0.1 #percentage of people that can be unassigned to a hub
-        max_long_walk_percent = 0.1 #percentage of people that can have long walks to hub
-
+    def hub_fitness(self, City, max_travel_time, max_people_served, capacity_factor, max_unassigned_percent, max_long_walk_percent):
         # find and save average time and people served to hub_dictionary
         hub_dictionary = self.hub_list_dictionary
         fitness_check = False
@@ -451,7 +447,8 @@ class NetworkClustering():
 
         k_check = all(i <= capacity_factor * max_people_served for i in capacity_np)
 
-        if time_check or long_travel and capacity_check and unassigned < (max_unassigned_percent * city_wide_people_served):
+        print(time_check, long_travel, capacity_check, unassigned < (max_unassigned_percent * city_wide_people_served))
+        if (time_check or long_travel) and capacity_check and (unassigned < (max_unassigned_percent * city_wide_people_served)):
             fitness_check = True
         
         for i in range(len(average_list)):
@@ -459,6 +456,7 @@ class NetworkClustering():
 
         if len(zero_people_hubs)> 0: print('The following hubs have no users assigned: {}. This/these hub location(s) will be replaced with new location(s) in next itteration.'.format(zero_people_hubs))
 
+        print(fitness_check, time_check, k_check, zero_people_hubs)
         return fitness_check, time_check, k_check, zero_people_hubs
     
     ### load the CSV files and save to lists to input into the multiplot function
@@ -493,9 +491,20 @@ class NetworkClustering():
         return cluster_iterations, file_name, hubs, title, colors
 
     def optimize_locations(self, City, session_name, data_folder, start_pt_ct, coordinates_transformed_xy,
-        destinations, dest_edges, skip_non_shortest_input, skip_treshold_input, weight_input, cutoff_input, 
-        max_additional_clusters, calc_euclid, orig_yx_transf, point_count, max_travel_time, max_distance, max_iterations,
-        max_cpu_count, hub_colors, network_scale, max_people_served, capacity_factor, distance_decrease_factor):
+        destinations, skip_non_shortest_input, skip_treshold_input, weight_input, cutoff_input, orig_yx_transf, point_count, max_weight, max_cpu_count, hub_colors, 
+        calc_euclid=False, 
+        max_distance=50, 
+        max_additional_clusters=50, 
+        max_iterations=50, 
+        network_scale='small', 
+        max_people_served=6570, 
+        capacity_factor=1.2, 
+        distance_decrease_factor=0.9, 
+        max_unassigned_percent=0.1, 
+        max_long_walk_percent=0.1):
+
+        # Extract edges
+        dest_edges = City.ne
 
         #initialize variables
         iteration = self.iteration
@@ -610,7 +619,7 @@ class NetworkClustering():
                 move_distance = self.new_hub_location(City)
                 self.save_print_information(data_folder, '04_kmeans')
                 print(f'Moved hubs on average {round(move_distance, 2)} meters')
-                _, _, k_check, _ = self.hub_fitness(City, max_travel_time, max_people_served, capacity_factor)
+                _, _, k_check, _ = self.hub_fitness(City, max_weight, max_people_served, capacity_factor, max_unassigned_percent, max_long_walk_percent)
 
                 if not k_check: max_iterations_active = 2
 
@@ -621,7 +630,7 @@ class NetworkClustering():
             self.save_iteration(data_folder, '05_clusters_final')
             
             ###check fitness function
-            fitness_check, _, _, zero_people_hubs = self.hub_fitness(City, max_travel_time, max_people_served, capacity_factor)
+            fitness_check, _, _, zero_people_hubs = self.hub_fitness(City, max_weight, max_people_served, capacity_factor, max_unassigned_percent, max_long_walk_percent)
 
             iteration += 1
             if max_distance*distance_decrease_factor > 0: max_distance = max_distance*distance_decrease_factor
