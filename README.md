@@ -17,7 +17,7 @@ The following code was developed for this project by the team:
 - run (Job de Vogel)
 ---
 - unpack.clustering (Lisa-Marie Mueller)
-- unpack.network_delft (Job de Vogel)
+- unpack.city_network (Job de Vogel)
 - unpack.example_mutlicore_v1 (Job de Vogel)
 - unpack.example_multicore_v2 (Job de Vogel)
 ---
@@ -32,6 +32,5 @@ The following code was developed for this project by the team:
 - unpack.utils.osm_data_request (Jirri van den Bos)
 ---
 - unpack.utils.utils.timer_decorator (Job de Vogel)
-
 
 - unpack.webapp (Lisa-Marie Mueller)
