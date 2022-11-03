@@ -208,7 +208,7 @@ class NetworkClustering():
         self.hub_assignments_df = hub_assignments_df
 
     ### generate random points within the boundary of the loaded city at which to place hub locations
-    def generate_random_points(self, City, coordinates_transformed_xy, start_pt_ct, orig_yx_transf, zero_people_hubs):
+    def generate_random_points(self, City, boundary_coordinates, start_pt_ct, orig_yx_transf, zero_people_hubs):
         # Print current hub_dictionary state
         if self.hub_list_dictionary is not None:
             print('Adding points to hub dictionary:')
@@ -220,10 +220,10 @@ class NetworkClustering():
 
         #[N, S, E, W]
         #w_n_corner, e_n_corner, w_s_corner, e_s_corner
-        coordinateX_min = coordinates_transformed_xy[0][0]
-        coordinateX_max = coordinates_transformed_xy[1][0]
-        coordinateY_min = coordinates_transformed_xy[2][1]
-        coordinateY_max = coordinates_transformed_xy[0][1]
+        coordinateX_min = boundary_coordinates[0][0]
+        coordinateX_max = boundary_coordinates[1][0]
+        coordinateY_min = boundary_coordinates[2][1]
+        coordinateY_max = boundary_coordinates[0][1]
 
         if self.hub_list_dictionary == None:
             print('No hub dictionary assigned yet, initializing hub dictionary')
@@ -254,7 +254,6 @@ class NetworkClustering():
 
         else:
             index = len(self.hub_list_dictionary)
-        
         
         if len(zero_people_hubs) > 0:
             for hub in zero_people_hubs:
@@ -323,7 +322,7 @@ class NetworkClustering():
                     self.hub_assignments_df.at[i,'Euclid_nearesthub']=hub
 
     ### move the hub based on travel distance of all houses in the hub cluster
-    def new_hub_location(self, City):
+    def new_hub_location(self, City, boundary_coordinates):
         hub_dictionary = self.hub_list_dictionary
         for (hub_name, _) in hub_dictionary.items():
             x = []
@@ -331,28 +330,60 @@ class NetworkClustering():
 
             for i, row in self.hub_assignments_df.iterrows():
                 if row['Nearest_hub_name'] == hub_name:
-                    address_num = City.building_addr_df.iloc[i]['addr']
-                    #x
+                    people_num = City.building_addr_df.iloc[i]['people']
+
                     house_x = City.building_addr_df.iloc[i]['x']
-                    for j in range(address_num):
+                    for j in range(m.ceil(people_num)):
                         x.append(house_x)
-                    #y
+
                     house_y = City.building_addr_df.iloc[i]['y']
-                    for j in range(address_num):
+                    for j in range(m.ceil(people_num)):
                         y.append(house_y)
    
-            all_x = np.array(x)
-            all_y = np.array(y)
+            # If points are assigned:
+            if len(x) > 0 and len(y) > 0:
+                all_x = np.array(x)
+                all_y = np.array(y)
 
-            average_x = np.sum(all_x) / len(all_x)
-            average_y = np.sum(all_y) / len(all_y)
-            previous_location = (hub_dictionary[hub_name]['x'], hub_dictionary[hub_name]['y'])
-            hub_dictionary[hub_name]['x'] = average_x
-            hub_dictionary[hub_name]['y'] = average_y
-            new_location = (hub_dictionary[hub_name]['x'], hub_dictionary[hub_name]['y'])
+                # Computer average x and y for this hub
+                average_x = np.sum(all_x) / len(all_x)
+                average_y = np.sum(all_y) / len(all_y)
+            
+                # Extract previous location
+                previous_location = (hub_dictionary[hub_name]['x'], hub_dictionary[hub_name]['y'])
+            
+                # Set new x and y for this hub
+                hub_dictionary[hub_name]['x'] = average_x
+                hub_dictionary[hub_name]['y'] = average_y
+                
+                # Create new location coordinate
+                new_location = (hub_dictionary[hub_name]['x'], hub_dictionary[hub_name]['y'])
+            
+            # The hubs changed in such a way that no houses are assigned to this hub
+            # anymore, therefore generate a new random location.
+            else:
+                #[N, S, E, W]
+                #w_n_corner, e_n_corner, w_s_corner, e_s_corner
+                coordinateX_min = boundary_coordinates[0][0]
+                coordinateX_max = boundary_coordinates[1][0]
+                coordinateY_min = boundary_coordinates[2][1]
+                coordinateY_max = boundary_coordinates[0][1]
+                
+                # Create a new random location
+                x = random.uniform(coordinateX_min, coordinateX_max)
+                y = random.uniform(coordinateY_min, coordinateY_max)
+                
+                # Set new x and y for this hub
+                hub_dictionary[hub_name]['x'] = x
+                hub_dictionary[hub_name]['y'] = y
+
+                # Create new location coordinate
+                new_location = (hub_dictionary[hub_name]['x'], hub_dictionary[hub_name]['y'])
 
             point1 = previous_location
             point2 = new_location
+            
+            # Compute distance between previous and new
             move_distance = ((point2[0] - point1[0]) ** 2 + (point2[1] - point1[1]) ** 2) ** 0.5 
 
         self.hub_list_dictionary = hub_dictionary
@@ -360,10 +391,10 @@ class NetworkClustering():
         return move_distance
 
     ### add new random hub points
-    def add_points(self, City, coordinates_transformed_xy, point_count, orig_yx_transf, zero_people_hubs):
+    def add_points(self, City, boundary_coordinates, point_count, orig_yx_transf, zero_people_hubs):
         print('Adding ', point_count, ' point(s)')
 
-        add_points, changed_points = self.generate_random_points(City, coordinates_transformed_xy, point_count, orig_yx_transf, zero_people_hubs)
+        add_points, changed_points = self.generate_random_points(City, boundary_coordinates, point_count, orig_yx_transf, zero_people_hubs)
 
         return add_points, changed_points
 
@@ -383,28 +414,46 @@ class NetworkClustering():
 
         zero_people_hubs = []
 
+        long_travel = True
+
         for (hub_name, _) in hub_dictionary.items():
             all_times = []
             all_people = []
             all_addresses = []
+            weights = []
+            people_at_hub = 0
+            num_people_per_hub = []
+            
             for i, row in self.hub_assignments_df.iterrows():
                 if row['Nearest_hub_name'] == hub_name:
                     #travel time
                     time = row['Weight']
                     all_times.append(time)
                     #people served
-                    addresses = City.building_addr_df.iloc[i]['addr']
-                    people = City.building_addr_df.iloc[i]['addr'] * 2.13
-                    all_addresses.append(addresses)
+                    people = City.building_addr_df.iloc[i]['people']
                     all_people.append(people)
+                    num_people_per_hub.append(people)
                     city_wide_people_served += people
+                    
+                    weights.append(time)
+                    people_at_hub += people
+                    
                 if row['Nearest_hub_name'] == None:
                     unassigned += 1
                     all_times.append(0)
+                    long_travel = False                      
 
             if len(all_times) == 0:
                 all_times.append(0)
                 zero_people_hubs.append(hub_name)
+                
+            long_people = 0.
+            for weight, people in zip(weights, num_people_per_hub):
+                if weight > max_travel_time:
+                    long_people += people
+            
+            if long_people > (people_at_hub * max_long_walk_percent):
+                long_travel = False
 
             #time
             all_times_np = np.array(all_times)
@@ -412,9 +461,6 @@ class NetworkClustering():
             #people served
             all_people_np = np.array(all_people)
             total_people = np.sum(all_people_np)
-            #addresses served
-            all_addresses_np = np.array(all_addresses)
-            total_addresses = np.sum(all_addresses_np)
 
             max_time_list.append(np.max(all_times_np))
             capacity_list.append(total_people)
@@ -422,32 +468,19 @@ class NetworkClustering():
 
             hub_dictionary[hub_name]['avg_weight'] = average
             hub_dictionary[hub_name]['max_weight'] = np.max(all_times_np)
-            hub_dictionary[hub_name]['people_served'] = total_people
-        
-        #more weight based on shortestest travel
-
-        self.hub_list_dictionary = hub_dictionary
+            hub_dictionary[hub_name]['people_served'] = total_people             
 
         max_time_list_np = np.array(max_time_list)
-        average_travel_time = np.sum(average_list) / len(average_list)
-        max_time = np.amax(max_time_list_np)
         
-        #check how many travel times are very long (greater than 10% over target) 
-        long_travel_times = []
-        for time in max_time_list_np:
-            if time > max_travel_time*1.1:
-                long_travel_times.append(time)
-
-        long_travel = len(long_travel_times) < city_wide_people_served * max_long_walk_percent
+        # If all the max times are smaller than allowed, then time_check is True
         time_check = all(i <= max_travel_time for i in max_time_list_np)
 
         capacity_np = np.array(capacity_list)
-        average_capacity = np.sum(capacity_np) / len(capacity_np)
         capacity_check = all(i <= max_people_served for i in capacity_np)
 
         k_check = all(i <= capacity_factor * max_people_served for i in capacity_np)
 
-        print(f'Time_check: {time_check}, Long_travel_check{long_travel}, Capacity_check{capacity_check}, Unassigned_check: {unassigned < (max_unassigned_percent * city_wide_people_served)}')
+        print(f'Time_check: {time_check}, Long_travel_check: {long_travel}, Capacity_check: {capacity_check}, Unassigned_check: {unassigned < (max_unassigned_percent * city_wide_people_served)}')
         
         if (time_check or long_travel) and capacity_check and (unassigned < (max_unassigned_percent * city_wide_people_served)):
             fitness_check = True
@@ -466,7 +499,6 @@ class NetworkClustering():
         file_name = []
         hubs = []
         colors = []
-        title = []
 
         allfiles = [f for f in os.listdir(path) if os.path.isfile(os.path.join(path, f))]
         for file in allfiles:
@@ -486,24 +518,22 @@ class NetworkClustering():
             file_name.append(current_df.iloc[0]['cluster_name'])
             hubs.append(file_hubs)
             colors.append(file_colors)
-            title.append(current_df.iloc[0]['title'])
 
-        return cluster_iterations, file_name, hubs, title, colors
+        return cluster_iterations, file_name, hubs, colors
 
-    def optimize_locations(self, City, session_name, data_folder, start_pt_ct, coordinates_transformed_xy,
-        destinations, skip_non_shortest_input, skip_treshold_input, weight_input, cutoff_input, orig_yx_transf, point_count, max_weight, max_cpu_count, hub_colors, 
+    def optimize_locations(self, City, session_name, data_folder, boundary_coordinates, destinations, weight_input, cutoff_input, skip_non_shortest_input, skip_treshold_input, start_pt_ct, point_count, max_weight, max_cpu_count, hub_colors, 
         calc_euclid=False, 
-        max_distance=50, 
+        max_distance=100, 
         max_additional_clusters=50, 
-        max_iterations=50, 
+        max_iterations=75, 
         network_scale='small', 
         max_people_served=6570, 
         capacity_factor=1.2, 
-        distance_decrease_factor=0.9, 
+        distance_decrease_factor=0.95, 
         max_unassigned_percent=0.1, 
         max_long_walk_percent=0.1):
 
-        # Extract edges
+        # Extract data
         dest_edges = City.ne
 
         #initialize variables
@@ -534,12 +564,11 @@ class NetworkClustering():
             
             if iteration == 1:
                 # update number of CPUs to use based on number of clusters
-                #! Update CPU count here
                 if self.max_cores > start_pt_ct: cpu_count = start_pt_ct
                 else: cpu_count = self.max_cores
 
                 ### only on first iteration generate random points for hubs and cluster houses based on closest hub
-                hubs,_ = self.generate_random_points(City, coordinates_transformed_xy, start_pt_ct, orig_yx_transf, zero_people_hubs)
+                hubs,_ = self.generate_random_points(City, boundary_coordinates, start_pt_ct, destinations, zero_people_hubs)
                 self.cluster_number = start_pt_ct
 
                 self.save_iteration(data_folder, '02_locations')
@@ -559,14 +588,14 @@ class NetworkClustering():
                 self.hub_assignments_df = paths_to_dataframe(paths, hub_colors, hubs=hubs)
 
                 if calc_euclid:
-                    self.hub_clusters_euclidean(orig_yx_transf)
+                    self.hub_clusters_euclidean(destinations)
                     self.save_iteration(data_folder, '03_cluster_euclid')
                 self.save_iteration(data_folder, '03_cluster')
                 self.max_cores = cpu_count
                 
             else:        
                 ### on all other iterations, add a new hub each time the while loop runs 
-                additional_points, changed_points = self.add_points(City, coordinates_transformed_xy, point_count, orig_yx_transf, zero_people_hubs)
+                additional_points, changed_points = self.add_points(City, boundary_coordinates, point_count, destinations, zero_people_hubs)
                 hubs = hubs + additional_points
                 for point in changed_points:
                     hubs[point[0]] = point[1]
@@ -593,7 +622,7 @@ class NetworkClustering():
                 self.hub_assignments_df = paths_to_dataframe(paths, hub_colors, hubs=hubs)
 
                 if calc_euclid:
-                    self.hub_clusters_euclidean(orig_yx_transf)
+                    self.hub_clusters_euclidean(destinations)
                     self.save_iteration(data_folder, '03_clusters_euclid')
                 self.save_iteration(data_folder, '03_clusters')
                 self.max_cores = cpu_count
@@ -601,7 +630,7 @@ class NetworkClustering():
             print('------------------------------------\n')
 
             ###optimize hub locations
-            move_distance = self.new_hub_location(City)
+            move_distance = self.new_hub_location(City, boundary_coordinates)
             i = 0
             self.kmeansstep = i
             while move_distance > max_distance and i < max_iterations_active:
@@ -615,8 +644,8 @@ class NetworkClustering():
                     cpus=cpu_count
                     )
                 self.hub_assignments_df = paths_to_dataframe(paths, hub_colors, hubs=hubs)
-                if calc_euclid: self.hub_clusters_euclidean(orig_yx_transf)
-                move_distance = self.new_hub_location(City)
+                if calc_euclid: self.hub_clusters_euclidean(destinations)
+                move_distance = self.new_hub_location(City, boundary_coordinates)
                 self.save_print_information(data_folder, '04_kmeans')
                 print(f'Moved hubs on average {round(move_distance, 2)} meters')
                 _, _, k_check, _ = self.hub_fitness(City, max_weight, max_people_served, capacity_factor, max_unassigned_percent, max_long_walk_percent)

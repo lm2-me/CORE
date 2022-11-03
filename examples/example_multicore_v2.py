@@ -127,39 +127,25 @@ def main():
         end = time.time()
         print(end-start)
 
+        colors = ['red', 'orange', 'yellow', 'pink', 'purple', 'peru']
+
         # Show the results
-        paths_df = unpack.paths_to_dataframe(paths, hubs=hubs)
+        paths_df = unpack.paths_to_dataframe(paths, colors, hubs=hubs)
         print(paths_df)
 
-    #     '''
+        '''
 
-    #     CALCULATE FITNESS HERE
-    #     REPOSITION THE HUBS BASED ON K-MEANS CLUSTERING      
+        CALCULATE FITNESS HERE
+        REPOSITION THE HUBS BASED ON K-MEANS CLUSTERING      
         
-    #     '''
+        '''
 
-    #     # Add to cluster_iterations results
-    #     cluster_iterations.append(paths)
+        # Add to cluster_iterations results
+        cluster_iterations.append(paths)
 
-    #     end=time.time()
+        end=time.time()
 
-    #     print(f"Cluster iteration {i} finished in {end-start}s...")
-
-    # # SAVING MULTIPLE CLUSTERING ITERATION PLOTS, MULTICORE
-    # # WARNING: THIS PROCESS IS MEMORY BOUND, USES UP TO 40 GB COMMITED MEMORY FOR FULL DELFT NETWORK dpi=300, num_hubs=48
-    # # This solution solves the waiting time for generating all the pngs.
-    # # It can also be done after the algorithm has finished, and be executed
-    # # on multiple computers. For just checking the result, it is recommended
-    # # to only use City.plot(**kwargs) once for the final hub setup.
-    # start = time.time()
-    
-    # colors = ['red', 'orange', 'yellow', 'pink', 'purple', 'peru']
-    
-    # # TODO: remove closest hub function from the multiplot_save inputs
-    # unpack.multiplot_save(cluster_iterations, City, destinations, unpack.closest_hub, colors, session_name, dpi=300, cpus=None)
-    
-    # end = time.time()
-    # print(f"Finished multiplot in {end-start}s")
-
+        print(f"Cluster iteration {i} finished in {end-start}s...")
+        
 if __name__ == '__main__':
     main()
