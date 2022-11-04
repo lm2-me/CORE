@@ -984,7 +984,7 @@ def multicore_single_source_shortest_path(graph, orig, dest, dest_edges, skip_no
             
     return orig_paths
 
-def format_paths_for_plot(paths, closest_hubs, colors):
+def format_paths(paths, closest_hubs, colors):
     """Format paths to be able to plot them, compute the color per house,
     figure out which houses are assigned.
 
@@ -1008,10 +1008,20 @@ def format_paths_for_plot(paths, closest_hubs, colors):
             as cleaned_paths.
     """
     
-    color_mask = [colors[i % len(colors)] for i in closest_hubs if i != None]
-    cleaned_paths = [list(paths.values())[hub_idx][num] for num, hub_idx in enumerate(closest_hubs) if hub_idx != None]
+    color_mask = [colors[i % len(colors)] if i != None else None for i in closest_hubs]
+    cleaned_paths = [list(paths.values())[hub_idx][num] if hub_idx != None else None for num, hub_idx in enumerate(closest_hubs)]
 
     return cleaned_paths, color_mask
+
+def format_for_plot(dataframe):
+    paths = dataframe.loc[:, 'Path']
+    paths = paths.tolist()
+    
+    no_Nones = [i for (i, path) in enumerate(paths) if path != None]
+    
+    dataframe = dataframe.loc[no_Nones, ['Path', 'Color_mask']]
+    
+    return dataframe
 
 def paths_to_dataframe(paths, colors, hubs=None):
     """ Convert shortest path results to a Pandas Dataframe.
@@ -1036,7 +1046,7 @@ def paths_to_dataframe(paths, colors, hubs=None):
     # Compute which paths belong to which hub
     # Returns a list with indices of the assigned hub per destination: [2, 0, 0, 1, 4, ... , 0]
     # This is possible, since we are using an OrderedDict
-    closest_hubs_list, _ = closest_hubs(paths)  
+    closest_hubs_list, _ = closest_hubs(paths)
 
     if isinstance(hubs, OrderedDict):        
         # Extract the data of the hubs from the dictionary
@@ -1052,7 +1062,7 @@ def paths_to_dataframe(paths, colors, hubs=None):
         df['hub_y'] = [hub_y[closest_hub] if closest_hub != None else None for closest_hub in closest_hubs_list]
         df['Path_not_found'] = [True if hub == None else False for hub in closest_hubs_list]
                         
-        cleaned_paths, color_mask = format_paths_for_plot(paths, closest_hubs_list, colors)        
+        cleaned_paths, color_mask = format_paths(paths, closest_hubs_list, colors)        
         
         df['Weight'] = [data[0] if data != None else None for data in cleaned_paths]
         df['Color_mask'] = color_mask
@@ -1068,11 +1078,19 @@ def paths_to_dataframe(paths, colors, hubs=None):
             df['hub_x'] = [hubs[i][1] if i != None else None for i in closest_hubs_list]
             df['hub_y'] = [hubs[i][0] if i != None else None for i in closest_hubs_list]
 
-        cleaned_paths, color_mask = format_paths_for_plot(paths, closest_hubs_list, colors)   
+        cleaned_paths, color_mask = format_paths(paths, closest_hubs_list, colors)   
 
         df['Euclid_nearesthub'] = [str(f"hub_{i + 1}") if i != None else None for i in closest_hubs_list]
-        df['Euclid_hubdistance'] = [data[0] if data != None else None for data in cleaned_paths]
-        df['Weight'] = [data[0] if data != None else None for data in cleaned_paths]
+        
+        weights = []
+        for i, j in enumerate(closest_hubs_list):
+            if j is not None:
+                weights.append(list(paths.values())[j][i][0])
+            else:
+                weights.append(None)
+        
+        df['Euclid_hubdistance'] = weights
+        df['Weight'] = weights
         df['Color_mask'] = color_mask
 
         # Add a column with the shortest path result

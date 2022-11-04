@@ -120,7 +120,7 @@ def main():
     skip_non_shortest = False
     skip_treshold = 60
     weight = 'travel_time'
-    cutoff = None
+    cutoff = 300
     max_unassigned_percent = 0.1 #percentage of people that can be unassigned to a hub
     max_long_walk_percent = 0.1 #percentage of people that can have long walks to hub
 
@@ -141,7 +141,7 @@ def main():
     visualize_clustering = True # set to true to generate clustering images
 
     #enter color pallet to use for plotting
-    hub_colors = ['#FFE54F', '#82C5DA', '#C90808', '#FAA12A', '#498591', '#E64C4C', '#E4FFFF', '#CA5808', '#3F4854']
+    hub_colors = ['red', 'tomato', 'orangered', 'lightsalmon', 'indianred', 'firebrick', 'gold', 'darkorange', 'yellow', 'yellowgreen', 'greenyellow', 'darkolivegreen', 'lawngreen', 'forestgreen', 'limegreen', 'darkgreen', 'green', 'seagreen', 'darkslategray', 'blue', 'deepskyblue', 'steelblue', 'dodgerblue', 'skyblue', 'cornflowerblue', 'royalblue', 'slateblue', 'darkslateblue', 'mediumslateblue', 'mediumpurple', 'rebeccapurple', 'blueviolet', 'darkviolet', 'mediumorchid' 'purple', 'darkmagenta', 'mediumvioletred', 'deeppink', 'palevioletred', 'crimson']
 
     ###### ------- ######
     
@@ -157,6 +157,7 @@ def main():
 
     ### load network from file, run after network is generated
     City, orig_yx_transf = load_network(network_name, data_folder)
+    
     destinations = City.get_yx_destinations()
     # dest_edges = City.nearest_edges(5, cpus=12)
     # City.save_graph(network_name, data_folder)
@@ -175,27 +176,19 @@ def main():
 
     #option to change/adjust these as clusering settings
     point_count = 1 #the number of new hubs to add when the fitness is not reached
-    #! Decrease max_distance to make the hub locations more accurate earlier (this variable is automatically decreased each itteration so as the hubs are more accurately placed as they get closer to the optimila number)
-    max_distance = 50 #when distance the hub moves during k-means clustering, is less than max_distance, the hub will stop moving
-    #! Increase max_iterations if the k-means clustering stops moving the hubs too fast
-    max_iterations = 50 #maximum iterations in case the max_distance moves a lot for too long
-    #! Increase the max_additional_clusters to allow the algorithm to place more hubs after the initialization
-    #! Based on the network_scale input, this variable will be reset to the following maximums (if the value set is less than the maximum, the entered value will be used): 50 if small network scale, 100 if medium network scale, 200 if large network scale
-    max_additional_clusters = 20 #after adding this many new locations, the algorithm will stop use this to cut the algorithm before the optimial solution if time is a concern, if set above 50 it will be reset to 50
 
     Clusters.optimize_locations(City, session_name, data_folder, coordinates, destinations, weight, cutoff, skip_non_shortest, skip_treshold, start_pt_ct, point_count, max_travel_time, max_cpu_count, hub_colors)
 
-    print_df_files_path = data_folder + session_name + '/Dataframe/'
-    cluster_iterations, file_name, hubs, title, colors = Clusters.load_files_for_plot(print_df_files_path)
+    dataframes_path = data_folder + session_name + '/Dataframe/'
+    cluster_iterations, file_names, hubs, route_color_masks, dest_color_masks, dataframes = Clusters.load_dataframe(dataframes_path, session_name)
     
     print('Final hub locations and information:')
-    print(pd.DataFrame(dict(Clusters.hub_list_dictionary)).T.astype({'index' : int}))
     
     destinations = []
     for i, row in City.building_addr_df.iterrows():
         destinations.append((row['y'], row['x']))
-
-    if visualize_clustering: unpack.multiplot_save(City, cluster_iterations, hubs, destinations, file_name, colors, hub_colors, cpus=None)
+    
+    if visualize_clustering: unpack.multiplot_save(City, cluster_iterations, hubs, destinations, file_names, route_color_masks, hub_colors, dest_color_masks=dest_color_masks, cpus=1)
     
 if __name__ == '__main__':
     main()

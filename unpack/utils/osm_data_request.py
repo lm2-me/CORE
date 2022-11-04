@@ -6,7 +6,7 @@ import requests
 import geopandas as gpd
 from .utils.transform_coordinates import transform_coordinates
 from shapely.geometry import Point
-from shapely.geometry import Polygon
+import os
 
 '''
 Retrieve OSM and BAG building data and adresses.
@@ -264,6 +264,11 @@ def compare_building_cbs(building_addr, cbs_data, cbs_properties):
             data = cbs_data.loc[result[i],[j]]
             building_addr.at[i, j] = data[0]
     print(max_length[3:] + max_length)
+    
+    for i, size in enumerate(building_addr['gemiddeldeHuishoudsgrootte'].tolist()):
+        if size < 0:
+            building_addr.loc[i, 'gemiddeldeHuishoudsgrootte'] = 0
+    
     building_addr['people'] = building_addr['addr'] * building_addr['gemiddeldeHuishoudsgrootte']
     return building_addr
 
@@ -290,6 +295,10 @@ def get_CBS_query(user_input, cbs_properties, buurt_index_skip=[]):
     #Add base and typename requests to the query
     query = "https://service.pdok.nl/cbs/wijkenbuurten/2021/wfs/v1_0?service=wfs&version=2.0.0&srsName=EPSG:3857&request=GetFeature&typeName="
     query += database + '&propertyName=('
+    
+    if not os.path.isdir('Data/runtime/'):
+        os.mkdir('Data/runtime/')
+    
     for c, property in enumerate(cbs_properties):
         query += ('wijkenbuurten:'+ property)
         if c+1 != len(cbs_properties):

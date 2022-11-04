@@ -59,7 +59,7 @@ class CityNetwork():
     edge_color = 'white'
     node_color = 'white'
     edge_linewidth = 0.5
-    node_size=1.5
+    node_size=1
     route_color = 'white'
     route_width = 0.6
     origin_color = 'white'
@@ -109,9 +109,6 @@ class CityNetwork():
         self.graph : networkx graph
             Multigraph of the streets and junctions.
         """
-        
-        if not os.path.isdir(filepath):
-            os.mkdir(filepath)
         
         # If Electric personal vehicle: use bike data
         transport_type = self.transport_type
