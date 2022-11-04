@@ -110,6 +110,9 @@ class CityNetwork():
             Multigraph of the streets and junctions.
         """
         
+        if not os.path.isdir(filepath):
+            os.mkdir(filepath)
+        
         # If Electric personal vehicle: use bike data
         transport_type = self.transport_type
         if transport_type == 'epv':

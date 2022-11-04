@@ -494,11 +494,12 @@ class NetworkClustering():
     
     ### load the CSV files and save to lists to input into the multiplot function
     def load_files_for_plot(self, path):
-
         cluster_iterations = []
         file_name = []
         hubs = []
         colors = []
+        title = []
+        dataframes = []
 
         allfiles = [f for f in os.listdir(path) if os.path.isfile(os.path.join(path, f))]
         for file in allfiles:
@@ -518,14 +519,16 @@ class NetworkClustering():
             file_name.append(current_df.iloc[0]['cluster_name'])
             hubs.append(file_hubs)
             colors.append(file_colors)
+            title.append(current_df.iloc[0]['title'])
+            dataframes.append(current_df)
 
-        return cluster_iterations, file_name, hubs, colors
+        return cluster_iterations, file_name, hubs, title, colors, dataframes
 
     def optimize_locations(self, City, session_name, data_folder, boundary_coordinates, destinations, weight_input, cutoff_input, skip_non_shortest_input, skip_treshold_input, start_pt_ct, point_count, max_weight, max_cpu_count, hub_colors, 
         calc_euclid=False, 
         max_distance=100, 
-        max_additional_clusters=50, 
-        max_iterations=75, 
+        max_additional_clusters=75, 
+        max_iterations=10, 
         network_scale='small', 
         max_people_served=6570, 
         capacity_factor=1.2, 
@@ -586,6 +589,7 @@ class NetworkClustering():
                     cpus=cpu_count
                     )
                 self.hub_assignments_df = paths_to_dataframe(paths, hub_colors, hubs=hubs)
+                print(self.hub_assignments_df)
 
                 if calc_euclid:
                     self.hub_clusters_euclidean(destinations)
@@ -620,6 +624,7 @@ class NetworkClustering():
                     cpus=cpu_count
                     )
                 self.hub_assignments_df = paths_to_dataframe(paths, hub_colors, hubs=hubs)
+                print(self.hub_assignments_df)
 
                 if calc_euclid:
                     self.hub_clusters_euclidean(destinations)
@@ -644,6 +649,7 @@ class NetworkClustering():
                     cpus=cpu_count
                     )
                 self.hub_assignments_df = paths_to_dataframe(paths, hub_colors, hubs=hubs)
+                print(self.hub_assignments_df)
                 if calc_euclid: self.hub_clusters_euclidean(destinations)
                 move_distance = self.new_hub_location(City, boundary_coordinates)
                 self.save_print_information(data_folder, '04_kmeans')
