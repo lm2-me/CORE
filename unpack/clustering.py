@@ -23,7 +23,7 @@ import random
 import pickle
 import os.path
 import pandas
-import time
+import datetime
 
 import multiprocessing as mp
 
@@ -67,6 +67,13 @@ class NetworkClustering():
         print('Iteration state saved as .pkl file')
     
     def save_dataframe(self, dataframe, hubs, k_means_iteration_i, state: str, folder: str, session_name: str):
+        hub_locations = []
+        for hub in hubs.values():
+            locations = (hub['y'], hub['x'])
+            hub_locations.append(locations)
+        
+        hubs = hub_locations
+        
         path = folder + session_name + '/Dataframe/'
         name = 'iteration_' + str(self.iteration) + '_step_' + str(k_means_iteration_i) + '_' + state
         file_path = path + name + '.pkl'
@@ -96,7 +103,7 @@ class NetworkClustering():
             with open(path + file, 'rb') as f:
                 dataframe, hubs, name = pickle.load(f)
             
-            name = str(i).zfill(4) + '_' + session_name + '_' + name          
+            name = str(i).zfill(4) + '_' + session_name + '_' + name         
 
             paths = dataframe.loc[:, 'Path']
             paths = paths.tolist()
@@ -396,7 +403,7 @@ class NetworkClustering():
         return add_points, changed_points
 
     ### calculate the hub fitness
-    def hub_fitness(self, City, max_travel_time, max_people_served, capacity_factor, max_unassigned_percent, max_long_walk_percent):
+    def hub_fitness(self, City, max_travel_time, max_people_served, capacity_factor, max_unassigned_percent, max_long_walk_percent, session_name):
         # find and save average time and people served to hub_dictionary
         hub_dictionary = self.hub_list_dictionary
         fitness_check = False
@@ -437,7 +444,7 @@ class NetworkClustering():
                     num_people_per_hub.append(people)
                     
                     weights.append(time)
-                    people_at_hub += people                         
+                    people_at_hub += people                     
 
             if len(all_times) == 0:
                 zero_people_hubs.append(hub_name)
@@ -454,8 +461,12 @@ class NetworkClustering():
             all_times_np = np.array([time for time in all_times if time != None])
             
             # Average time for one hub
-            average = np.sum(all_times_np) / len(all_times)
-            average_list.append(average)
+            if len(all_times) > 0:
+                average = np.sum(all_times_np) / len(all_times)
+                average_list.append(average)
+            else:
+                average = 0
+                average_list.append(0)
             
             # Standard deviation time for one hub
             std = np.std(all_times_np)
@@ -470,10 +481,13 @@ class NetworkClustering():
             max_time_list.append(np.max(all_times_np))
             
             hub_dictionary[hub_name]['avg_weight'] = average
+            hub_dictionary[hub_name]['std_weight'] = std
+            
             if len(all_times_np) > 0:
                 hub_dictionary[hub_name]['max_weight'] = np.max(all_times_np)
             else:
                 hub_dictionary[hub_name]['max_weight'] = 0
+                
             hub_dictionary[hub_name]['people_served'] = total_people             
 
         max_time_list_np = np.array(max_time_list)
@@ -513,13 +527,28 @@ class NetworkClustering():
         if len(zero_people_hubs)> 0: 
             print('The following hubs have no users assigned: {}. This/these hub location(s) will be replaced with new location(s) in next itteration.'.format(zero_people_hubs))
 
+        # Log iteration
+        run_name = 'data/' + 'log_' + session_name + '.txt'
+        with open(run_name, 'a') as file:
+            file.writelines(f'Logtime: {datetime.datetime.now()}\n')
+            for i in range(len(average_list)):
+                info = 'Hub {}: avg. weight: {}, std. weight: {}, max weight {}, people served per hub: {}'.format(i, round(average_list[i], 2), round(std_list[i], 2), round(max_time_list[i], 2), m.ceil(capacity_list[i]))
+            
+                file.writelines(info + '\n')
+            
+            file.writelines('\n')
+            file.writelines(f'Time_check: {time_check}, Long_travel_check: {long_travel}, Capacity_check: {capacity_check}, Unassigned_check: {unassigned_check} \n')
+            file.writelines(f"Unassigned people out of total: {m.ceil(unassigned)}/{m.ceil(city_wide_people_served)}\n")
+            file.writelines('----------------\n')
+            file.writelines('\n')
+            
         return fitness_check, time_check, k_check, zero_people_hubs
 
     def optimize_locations(self, City, session_name, data_folder, boundary_coordinates, destinations, weight_input, cutoff_input, skip_non_shortest_input, skip_treshold_input, start_pt_ct, point_count, max_weight, max_cpu_count, hub_colors, 
         calc_euclid=False, 
         max_distance=100, 
-        max_additional_clusters=10, 
-        max_iterations=5, 
+        max_additional_clusters=3, 
+        max_iterations=4, 
         network_scale='small', 
         max_people_served=6570, 
         capacity_factor=1.2, 
@@ -569,7 +598,7 @@ class NetworkClustering():
                 hubs,_ = self.generate_random_points(City, boundary_coordinates, start_pt_ct, destinations, zero_people_hubs)
                 self.cluster_number = start_pt_ct
 
-                self.save_dataframe(self.hub_assignments_df, hubs, 0, 'locations', data_folder, session_name)
+                self.save_dataframe(self.hub_assignments_df, self.hub_list_dictionary, 0, 'locations', data_folder, session_name)
                 
                 # Print results
                 print('')
@@ -583,28 +612,26 @@ class NetworkClustering():
                     cutoff=cutoff_input, 
                     cpus=cpu_count
                     )
-                self.hub_assignments_df = paths_to_dataframe(paths, hub_colors, hubs=hubs)
+
+                self.hub_assignments_df = paths_to_dataframe(paths, hub_colors, hubs=self.hub_list_dictionary)
 
                 if calc_euclid:
                     self.hub_clusters_euclidean(destinations)
-                    self.save_dataframe(self.hub_assignments_df, hubs, 1, 'cluster_euclid', data_folder, session_name)
+                    self.save_dataframe(self.hub_assignments_df, self.hub_list_dictionary, 1, 'cluster_euclid', data_folder, session_name)
                 
-                self.save_dataframe(self.hub_assignments_df, hubs, 1, 'cluster', data_folder, session_name)
+                self.save_dataframe(self.hub_assignments_df, self.hub_list_dictionary, 1, 'cluster', data_folder, session_name)
                 self.max_cores = cpu_count
                 
             else:        
                 ### on all other iterations, add a new hub each time the while loop runs 
                 additional_points, changed_points = self.add_points(City, boundary_coordinates, point_count, destinations, zero_people_hubs)
-                hubs = hubs + additional_points
-                for point in changed_points:
-                    hubs[point[0]] = point[1]
 
                 self.cluster_number += point_count
                 print('Added hub(s):')
                 print(pd.DataFrame(dict(self.hub_list_dictionary)).T.astype({'index' : int}))
                 print('')
                 
-                self.save_dataframe(self.hub_assignments_df, hubs, 0, 'locations', data_folder, session_name)
+                self.save_dataframe(self.hub_assignments_df, self.hub_list_dictionary, 0, 'locations', data_folder, session_name)
 
                 # update number of CPUs to use based on number of clusters
                 if self.max_cores > self.cluster_number: cpu_count = self.cluster_number
@@ -617,13 +644,14 @@ class NetworkClustering():
                     cutoff=cutoff_input, 
                     cpus=cpu_count
                     )
-                self.hub_assignments_df = paths_to_dataframe(paths, hub_colors, hubs=hubs)
+
+                self.hub_assignments_df = paths_to_dataframe(paths, hub_colors, hubs=self.hub_list_dictionary)
 
                 if calc_euclid:
                     self.hub_clusters_euclidean(destinations)
-                    self.save_dataframe(self.hub_assignments_df, hubs, 1, 'clusters_euclid', data_folder, session_name)
+                    self.save_dataframe(self.hub_assignments_df, self.hub_list_dictionary, 1, 'clusters_euclid', data_folder, session_name)
                 
-                self.save_dataframe(self.hub_assignments_df, hubs, 1, 'clusters', data_folder, session_name)
+                self.save_dataframe(self.hub_assignments_df, self.hub_list_dictionary, 1, 'clusters', data_folder, session_name)
                 self.max_cores = cpu_count
 
             print('------------------------------------\n')
@@ -642,26 +670,27 @@ class NetworkClustering():
                     cutoff=cutoff_input, 
                     cpus=cpu_count
                     )
-                self.hub_assignments_df = paths_to_dataframe(paths, hub_colors, hubs=hubs)        
+
+                self.hub_assignments_df = paths_to_dataframe(paths, hub_colors, hubs=self.hub_list_dictionary)        
                 
                 if calc_euclid: self.hub_clusters_euclidean(destinations)
                 move_distance = self.new_hub_location(City, boundary_coordinates)
 
-                self.save_dataframe(self.hub_assignments_df, hubs, i+2, 'kmeans', data_folder, session_name) 
+                self.save_dataframe(self.hub_assignments_df, self.hub_list_dictionary, i+2, 'kmeans', data_folder, session_name) 
                 
                 print(f'Moved hubs on average {round(move_distance, 2)} meters')
-                _, _, k_check, _ = self.hub_fitness(City, max_weight, max_people_served, capacity_factor, max_unassigned_percent, max_long_walk_percent)
+                _, _, k_check, _ = self.hub_fitness(City, max_weight, max_people_served, capacity_factor, max_unassigned_percent, max_long_walk_percent, session_name)
 
                 if not k_check: max_iterations_active = 2
 
                 i += 1
                 self.kmeansstep = i
                 print('------------------------------------\n')
-                
-            self.save_dataframe(self.hub_assignments_df, hubs, i+2, 'clusters_final', data_folder, session_name) 
+            
+            self.save_dataframe(self.hub_assignments_df, self.hub_list_dictionary, i+2, 'clusters_final', data_folder, session_name) 
             
             ###check fitness function
-            fitness_check, _, _, zero_people_hubs = self.hub_fitness(City, max_weight, max_people_served, capacity_factor, max_unassigned_percent, max_long_walk_percent)
+            fitness_check, _, _, zero_people_hubs = self.hub_fitness(City, max_weight, max_people_served, capacity_factor, max_unassigned_percent, max_long_walk_percent, session_name)
 
             iteration += 1
             self.iteration = iteration

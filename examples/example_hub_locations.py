@@ -115,12 +115,12 @@ def main():
     capacity_factor = 1.2 #add a factor that checks if the number of clusters is close to the required number, if it is not, then it will add more hubs with minimal hub location optimization
     #capacity_factor is multiplication based so entering 2 will means if the hub capacity is greater than 2 * max_people_served, then k will increase
     distance_decrease_factor = 0.9
-    random_init = 100
+    random_init = 101
     #shortest path settings
     skip_non_shortest = False
     skip_treshold = 60
     weight = 'travel_time'
-    cutoff = 300
+    cutoff = None
     max_unassigned_percent = 0.1 #percentage of people that can be unassigned to a hub
     max_long_walk_percent = 0.1 #percentage of people that can have long walks to hub
 
@@ -177,7 +177,7 @@ def main():
     #option to change/adjust these as clusering settings
     point_count = 1 #the number of new hubs to add when the fitness is not reached
 
-    Clusters.optimize_locations(City, session_name, data_folder, coordinates, destinations, weight, cutoff, skip_non_shortest, skip_treshold, start_pt_ct, point_count, max_travel_time, max_cpu_count, hub_colors)
+    Clusters.optimize_locations(City, session_name, data_folder, coordinates, destinations, weight, cutoff, skip_non_shortest, skip_treshold, start_pt_ct, point_count, max_travel_time, max_cpu_count, hub_colors, max_additional_clusters=7, max_iterations=6)
 
     dataframes_path = data_folder + session_name + '/Dataframe/'
     cluster_iterations, file_names, hubs, route_color_masks, dest_color_masks, dataframes = Clusters.load_dataframe(dataframes_path, session_name)
@@ -188,7 +188,7 @@ def main():
     for i, row in City.building_addr_df.iterrows():
         destinations.append((row['y'], row['x']))
     
-    if visualize_clustering: unpack.multiplot_save(City, cluster_iterations, hubs, destinations, file_names, route_color_masks, hub_colors, dest_color_masks=dest_color_masks, cpus=1)
+    if visualize_clustering: unpack.multiplot_save(City, cluster_iterations, hubs, destinations, file_names, route_color_masks, hub_colors, dest_color_masks=dest_color_masks, cpus=12)
     
 if __name__ == '__main__':
     main()

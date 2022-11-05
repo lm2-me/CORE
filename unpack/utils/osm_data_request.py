@@ -437,13 +437,13 @@ def main():
     #     print("The script is currently unable to gather Overpass data, please retry manually in 30 seconds")
 
     #LOAD THE BUILDING AND ADDR DATA FROM CSV
-    addr_frame =  load_csv('data/Delft_center_walk_addresses.csv')
-    building_frame = load_csv('data/Delft_center_walk_buildings.csv')
+    addr_frame =  load_csv('data/runtime/Delft_center_walk_addresses.csv')
+    building_frame = load_csv('data/runtime/Delft_center_walk_buildings.csv')
 
     building_addr = compare_building_addr(building_frame, addr_frame)
     building_addr = addxy_building_addr(building_addr)
     
-    #building_addr = load_csv('data/building_addr.csv')
+    #building_addr = load_csv('data/runtime/building_addr.csv')
 
     CBS_query = get_CBS_query(user_input, cbs_properties, buurt_index_skip=[0])
     print(CBS_query)

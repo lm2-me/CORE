@@ -1048,7 +1048,7 @@ def paths_to_dataframe(paths, colors, hubs=None):
     # This is possible, since we are using an OrderedDict
     closest_hubs_list, _ = closest_hubs(paths)
 
-    if isinstance(hubs, OrderedDict):        
+    if isinstance(hubs, OrderedDict):                
         # Extract the data of the hubs from the dictionary
         names = [name for name in hubs.keys()]
         idxs = [hub_info['index'] for _, hub_info in hubs.items()]
@@ -1064,14 +1064,24 @@ def paths_to_dataframe(paths, colors, hubs=None):
                         
         cleaned_paths, color_mask = format_paths(paths, closest_hubs_list, colors)        
         
-        df['Weight'] = [data[0] if data != None else None for data in cleaned_paths]
+        df['Euclid_nearesthub'] = [str(f"hub_{i + 1}") if i != None else None for i in closest_hubs_list]
+        
+        weights = []
+        for i, j in enumerate(closest_hubs_list):
+            if j is not None:
+                weights.append(list(paths.values())[j][i][0])
+            else:
+                weights.append(None)
+        
+        df['Euclid_hubdistance'] = weights
+        df['Weight'] = weights
         df['Color_mask'] = color_mask
         df['Path'] = cleaned_paths
         
     # Else: no OrderedDict is given, just assign based on closest_hubs
     else:
         df['Nearest_hub_name'] = [str(f"hub {i}") if i != None else None for i in closest_hubs_list]
-        df['Nearest_hub_idx'] = closest_hubs_list
+        df['idx'] = closest_hubs_list
         df['Path_not_found'] = [True if hub == None else False for hub in closest_hubs_list]
     
         if hubs != None:
