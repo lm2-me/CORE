@@ -468,17 +468,25 @@ class NetworkClustering():
                 average = 0
                 average_list.append(0)
             
-            # Standard deviation time for one hub
-            std = np.std(all_times_np)
-            std_list.append(std)
-            
             # People served in this hub
-            all_people_np = np.array(all_people)
-            total_people = np.sum(all_people_np)
+            if len(all_people) > 0:
+                all_people_np = np.array(all_people)
+                total_people = np.sum(all_people_np)
+            else:
+                total_people = 0
+                
             capacity_list.append(total_people)
 
-            # Maximum time for one hub
-            max_time_list.append(np.max(all_times_np))
+            if len(all_times_np) > 0:
+                # Maximum time for one hub
+                max_time_list.append(np.max(all_times_np))
+                
+                # Standard deviation time for one hub
+                std = np.std(all_times_np)
+                std_list.append(std)
+            else:
+                max_time_list.append(0)
+                std_list.append(0)
             
             hub_dictionary[hub_name]['avg_weight'] = average
             hub_dictionary[hub_name]['std_weight'] = std
@@ -521,6 +529,7 @@ class NetworkClustering():
         print('')
         print(f'Time_check: {time_check}, Long_travel_check: {long_travel}, Capacity_check: {capacity_check}, Unassigned_check: {unassigned_check}')
         print(f"Unassigned people out of total: {m.ceil(unassigned)}/{m.ceil(city_wide_people_served)}")
+        print(f"Avg. weight: {round(np.sum(np.array(average_list)) / len(average_list), 2)}, avg. std: {round(np.sum(np.array(std_list)) / len(std_list), 2)}, avg. people served: {m.ceil(np.sum(np.array(capacity_list)) / len(capacity_list))}")
         print('')
 
         # If hubs have zero people assigned, print
