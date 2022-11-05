@@ -470,7 +470,10 @@ class NetworkClustering():
             max_time_list.append(np.max(all_times_np))
             
             hub_dictionary[hub_name]['avg_weight'] = average
-            hub_dictionary[hub_name]['max_weight'] = np.max(all_times_np)
+            if len(all_times_np) > 0:
+                hub_dictionary[hub_name]['max_weight'] = np.max(all_times_np)
+            else:
+                hub_dictionary[hub_name]['max_weight'] = 0
             hub_dictionary[hub_name]['people_served'] = total_people             
 
         max_time_list_np = np.array(max_time_list)
@@ -480,9 +483,12 @@ class NetworkClustering():
 
         # If all capacities are lower than max_people_served per hub
         capacity_np = np.array(capacity_list)
-        capacity_check = all(i <= max_people_served for i in capacity_np)
-
-        k_check = all(i <= capacity_factor * max_people_served for i in capacity_np)
+        if len(capacity_np) > 0: 
+            capacity_check = all(i <= max_people_served for i in capacity_np)
+            k_check = all(i <= capacity_factor * max_people_served for i in capacity_np)
+        else:
+            capacity_check = False
+            k_check = False
 
         # If unassigned higer than max allowed
         unassigned_check = False
