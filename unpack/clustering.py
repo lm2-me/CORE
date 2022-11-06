@@ -75,7 +75,7 @@ class NetworkClustering():
         hubs = hub_locations
         
         path = folder + session_name + '/Dataframe/'
-        name = 'iteration_' + str(self.iteration) + '_step_' + str(k_means_iteration_i) + '_' + state
+        name = 'iteration_' + str(self.iteration).zfill(2) + '_step_' + str(k_means_iteration_i) + '_' + state
         file_path = path + name + '.pkl'
         
         df_to_save = pd.DataFrame()
@@ -537,7 +537,7 @@ class NetworkClustering():
             print('The following hubs have no users assigned: {}. This/these hub location(s) will be replaced with new location(s) in next itteration.'.format(zero_people_hubs))
 
         # Log iteration
-        run_name = 'data/' + 'log_' + session_name + '.txt'
+        run_name = City.data_folder + 'log_' + session_name + '.txt'
         with open(run_name, 'a') as file:
             file.writelines(f'Logtime: {datetime.datetime.now()}\n')
             for i in range(len(average_list)):
@@ -558,7 +558,6 @@ class NetworkClustering():
         max_distance=100, 
         max_additional_clusters=3, 
         max_iterations=4, 
-        network_scale='small', 
         max_people_served=6570, 
         capacity_factor=1.2, 
         distance_decrease_factor=0.95, 
@@ -576,11 +575,8 @@ class NetworkClustering():
         max_iterations_active = max_iterations
         zero_people_hubs = []
 
+        # Catch for small number of clusters
         if max_additional_clusters < 2: max_additional_clusters = 2
-        if network_scale == 'small': cluster_value = 50
-        if network_scale == 'medium': cluster_value = 100
-        if network_scale == 'large': cluster_value = 200
-        if max_additional_clusters > cluster_value: max_additional_clusters = cluster_value
 
         Dataframe_path = data_folder + session_name + '/Dataframe/'
         if not os.path.exists(Dataframe_path):
@@ -600,8 +596,10 @@ class NetworkClustering():
             
             if iteration == 1:
                 # update number of CPUs to use based on number of clusters
-                if self.max_cores > start_pt_ct: cpu_count = start_pt_ct
-                else: cpu_count = self.max_cores
+                if self.max_cores > self.hub_assignments_df.shape[0]: 
+                    cpu_count = self.hub_assignments_df.shape[0]
+                else: 
+                    cpu_count = self.max_cores
 
                 ### only on first iteration generate random points for hubs and cluster houses based on closest hub
                 hubs,_ = self.generate_random_points(City, boundary_coordinates, start_pt_ct, destinations, zero_people_hubs)
@@ -643,8 +641,10 @@ class NetworkClustering():
                 self.save_dataframe(self.hub_assignments_df, self.hub_list_dictionary, 0, 'locations', data_folder, session_name)
 
                 # update number of CPUs to use based on number of clusters
-                if self.max_cores > self.cluster_number: cpu_count = self.cluster_number
-                else: cpu_count = self.max_cores
+                if self.max_cores > self.hub_assignments_df.shape[0]: 
+                    cpu_count = self.hub_assignments_df.shape[0]
+                else: 
+                    cpu_count = self.max_cores
 
                 paths = multicore_single_source_shortest_path(City.graph, self.hub_list_dictionary, destinations, dest_edges,
                     skip_non_shortest=skip_non_shortest_input, 
