@@ -8,13 +8,17 @@ Classes:
     - NetworkClustering
 
 Methods:
-    - reset_hub_df_values: Reset the data stored in the dataframe so that previous runs won't impact the current run
-    - generate_random_starting_points: generate random points within the boundary of the loaded city at which to place hub locations
-    - hub_clusters: cluster houses to each hub based on the travel distance to each hub
-    - hub_clusters_euclidean: cluster houses to each hub based on the euclidean distance to each hub
-    - new_hub_location: move the hub based on travel distance of all houses in the hub cluster
-    - add_points: add new hub point location, currently adding random points
-    - hub_fitness: calculate the hub fitness value
+    >>> save_iteration: Saves current object state to pickle file
+    >>> save_dataframe: Saves current dataframe for plotting
+    >>> load_dataframe: Loads dataframe for plotting
+    >>> continue_clustering: Load previous clustering session and continue
+    >>> reset_hub_df_values: Reset the data stored in the dataframe so that previous runs won't impact the current run
+    >>> generate_points: Generate points within the boundary of the loaded city using k++ weighted locations at which to place hub locations
+    >>> hub_clusters_euclidean: cluster houses to each hub based on the euclidean distance to each hub
+    >>> new_hub_location: move the hub based on travel distance of all houses in the hub cluster
+    >>> add_points: add new hub points using k++ weighted locations
+    >>> hub_fitness: calculate the hub fitness value
+    >>> optimize_location: adaptive, weighted k-means clustering implementation incorproating fitness and k++ location intialization
 """
 
 import numpy as np
@@ -34,7 +38,12 @@ from re import X
 from .utils.multicore_shortest_path import *
 
 class NetworkClustering():
-    # Plot settings
+    """A NewtworkClustering class that implements adaptive weighted K-means 
+    clustering for the facility location problem. It can be used in 
+    combination with the CityNetwork class and shortest path computations
+    
+    Developed by Lisa-Marie Mueller
+    """
     
     def __init__(self, name: str):
         self.name = name
@@ -50,6 +59,18 @@ class NetworkClustering():
         return "<Clustering object of {}>".format(self.name)
 
     def save_iteration(self, folder: str, step:str):
+        """Save the object to a pickle file
+        
+        Developed by Lisa-Marie Mueller
+
+        Parameters
+        ----------
+        folder : string
+            Path to where pickle file should be stored.
+
+        step : string
+            Name for the step for legibility of saved files.
+        """  
         session_name = self.session_name
         iteration = self.iteration 
         iteration_num = '{:03}'.format(iteration)
@@ -67,6 +88,30 @@ class NetworkClustering():
         print('Iteration state saved as .pkl file')
     
     def save_dataframe(self, dataframe, hubs, k_means_iteration_i, state: str, folder: str, session_name: str):
+        """Save dataframe with hub information for plotting
+        
+        Developed by Job de Vogel
+
+        Parameters
+        ----------
+        dataframe : Pandas Dataframe
+            Data to be stored.
+
+        hubs : Dictionary
+            Dictionary containing all hub information.
+        
+        k_means_iteration_i : String
+            Current k-means iteration step.
+        
+        state : String
+            Name for the step for legibility of saved files.
+
+        folder : String
+            Path to where pickle file should be stored.
+
+        session_name : String
+            Name of the session.
+        """ 
         hub_locations = []
         for hub in hubs.values():
             locations = (hub['y'], hub['x'])
@@ -90,6 +135,19 @@ class NetworkClustering():
     
     @staticmethod
     def load_dataframe(path: str, session_name: str):
+        """Load dataframe for printing
+        
+        Developed by Lisa-Marie Mueller
+
+        Parameters
+        ----------
+        Path : String
+            Path from which to load pickle file.
+
+        session_name : String
+            Name of the session.
+        """ 
+
         cluster_iterations = []
         hubs_data = []
         file_names = []
@@ -130,6 +188,17 @@ class NetworkClustering():
         return cluster_iterations, file_names, hubs_data, route_color_masks, dest_color_masks, dataframes
     
     def continue_clustering(self, path: str):
+        """Load previous clustering session and continue
+        
+        Developed Lisa-Marie Mueller
+
+        Parameters
+        ----------
+
+        Path : String
+            Path to loaded pickle file.
+
+        """ 
         if os.path.isfile(path):
             # Load a graph from drive
             print('Loading {}'.format(path))
@@ -146,6 +215,17 @@ class NetworkClustering():
    
     ### Initialize DF, reset the data stored in the dataframe so that previous runs won't impact the current run
     def reset_hub_df(self, City):
+        """Reset the data stored in the dataframe so that previous runs won't impact the current run
+        
+        Developed Lisa-Marie Mueller
+
+        Parameters
+        ----------
+
+        City : Object
+            CityNetwork object of the city being analyzed.
+
+        """ 
         hub_assignments_df = self.hub_assignments_df
 
         if 'Nearest_hub_idx' not in hub_assignments_df:
@@ -212,7 +292,30 @@ class NetworkClustering():
         self.hub_assignments_df = hub_assignments_df
 
     ### generate random points within the boundary of the loaded city at which to place hub locations
-    def generate_random_points(self, City, boundary_coordinates, start_pt_ct, orig_yx_transf, zero_people_hubs):
+    def generate_points(self, City, boundary_coordinates, start_pt_ct, orig_yx_transf, zero_people_hubs):
+        """Generate random points within the boundary of the loaded city at which to place hub locations
+        
+        Developed Lisa-Marie Mueller
+
+        Parameters
+        ----------
+
+        City : Object
+            CityNetwork object of the city being analyzed.
+
+        boundary_coordinates : List
+            [N, S, E, W] coordinates denoting the boundaries of the city.
+
+        start_pt_ct : Integer
+            The number of hubs used to start clustering.
+        
+        orig_yx_transf : List of Tupples
+            The hub coordinates listed as (y,x).
+
+        zero_people_hubs : List
+            A list of hub dictionary keys that denote which hubs have no people assigned.
+
+        """ 
         # Print current hub_dictionary state
         if self.hub_list_dictionary is not None:
             print('Adding points to hub dictionary:')
@@ -309,6 +412,17 @@ class NetworkClustering():
 
     ### cluster houses to each hub based on the euclidean distance to each hub
     def hub_clusters_euclidean(self, orig_yx_transf):
+        """cluster houses to each hub based on the euclidean distance to each hub
+        
+        Developed Lisa-Marie Mueller
+
+        Parameters
+        ----------
+
+        orig_yx_transf : List of Tupples
+            The hub coordinates listed as (y,x).
+
+        """ 
         ### get hub locations from hub list dictionary
         hub_names, hub_yx_transf = get_yx_transf_from_dict(self.hub_list_dictionary)
         hub_yx_dict = dict(zip(hub_names, hub_yx_transf))
@@ -327,6 +441,20 @@ class NetworkClustering():
 
     ### move the hub based on travel distance of all houses in the hub cluster
     def new_hub_location(self, City, boundary_coordinates):
+        """move the hub based on travel distance of all houses in the hub cluster
+        
+        Developed Lisa-Marie Mueller
+
+        Parameters
+        ----------
+
+        City : Object
+            CityNetwork object of the city being analyzed.
+
+        boundary_coordinates : List
+            [N, S, E, W] coordinates denoting the boundaries of the city.
+
+        """ 
         hub_dictionary = self.hub_list_dictionary
         for (hub_name, _) in hub_dictionary.items():
             x = []
@@ -394,16 +522,67 @@ class NetworkClustering():
 
         return move_distance
 
-    ### add new random hub points
+    ### add new hub points using k++ weighted locations
     def add_points(self, City, boundary_coordinates, point_count, orig_yx_transf, zero_people_hubs):
+        """add new hub points using k++ weighted locations
+        
+        Developed Lisa-Marie Mueller
+
+        Parameters
+        ----------
+
+        City : Object
+            CityNetwork object of the city being analyzed.
+
+        boundary_coordinates : List
+            [N, S, E, W] coordinates denoting the boundaries of the city.
+
+        point_count : Integer
+            The number of hubs to add.
+        
+        orig_yx_transf : List of Tupples
+            The hub coordinates listed as (y,x).
+
+        zero_people_hubs : List
+            A list of hub dictionary keys that denote which hubs have no people assigned.
+
+        """ 
         print('Adding ', point_count, ' point(s)')
 
-        add_points, changed_points = self.generate_random_points(City, boundary_coordinates, point_count, orig_yx_transf, zero_people_hubs)
+        add_points, changed_points = self.generate_points(City, boundary_coordinates, point_count, orig_yx_transf, zero_people_hubs)
 
         return add_points, changed_points
 
     ### calculate the hub fitness
     def hub_fitness(self, City, max_travel_time, max_people_served, capacity_factor, max_unassigned_percent, max_long_walk_percent, session_name):
+        """ Calculate the hub fitness
+        
+        Developed Lisa-Marie Mueller, Job de Vogel
+
+        Parameters
+        ----------
+
+        City : Object
+            CityNetwork object of the city being analyzed.
+
+        max_travel_time : Float
+            Maximum travel time in seconds.
+
+        max_people_served : Integer
+            Maximum number of people that can be served by one hub.
+        
+        capacity_factor : Float
+            Percentage of people assigned to a hub that can exceed the capacity.
+
+        max_unassigned_percent : Float
+            Percentage of people that can remain unassigned.
+            
+        max_long_walk_percent : Float
+            Percentage of people assigned to a hub that can have longer travel times.
+
+        session_name : String
+            Name of the session.
+        """ 
         # find and save average time and people served to hub_dictionary
         hub_dictionary = self.hub_list_dictionary
         fitness_check = False
@@ -565,6 +744,83 @@ class NetworkClustering():
         max_unassigned_percent=0.1, 
         max_long_walk_percent=0.1):
 
+        """ Calculate the hub fitness
+        
+        Developed Lisa-Marie Mueller, Job de Vogel
+
+        Parameters
+        ----------
+
+        City : Object
+            CityNetwork object of the city being analyzed.
+
+        session_name : String
+            Name of the session.
+        
+        data_folder : String
+            Path to where pickle file should be stored.
+
+        boundary_coordinates : List
+            [N, S, E, W] coordinates denoting the boundaries of the city.
+
+        destinations : List
+            List of house locations from CityNetwork object
+
+        weight_input : String
+            Type of calculation to use for calculating shortest paths
+
+        cutoff_input : Integer
+            Distance at which to stop calcuating shortest paths
+
+        skip_non_shortest_input : Boolean
+            Option to stop calculating when a path is longer than the shortest path, less accurate but saves on computation
+
+        skip_treshold_input : Boolean
+            Option to skip inputing a threshold
+        
+        start_pt_ct : Integer
+            The number of hubs used to start clustering
+
+        point_count : Integer
+            The number of hubs to add.
+
+        max_weight : Float
+            Maximum travel time in seconds.
+        
+        max_cpu_count : Integer or None
+            Maximum number of cpus to use.
+        
+        hub_colors : List
+            List of colours to use for plotting.
+
+        calc_euclid : Boolean
+            Calculate euclidean distance during first iteration.
+
+        max_distance : Integer
+            Maximum distance that the hub assignement algorithm extends out from hubs.
+        
+        max_additional_clusters : Integer
+            Maximum number of hubs that are added after the initialization.
+        
+        max_iterations : Integer
+            Maximum number of k-means clustering itterations happen each round.
+
+        max_people_served : Integer
+            Maximum number of people that can be served by one hub.
+        
+        capacity_factor : Float
+            Percentage of people assigned to a hub that can exceed the capacity.
+        
+        distance_decrease_factor : Float
+            Decrease maximum walk distance by factor
+
+        max_unassigned_percent : Float
+            Percentage of people that can remain unassigned.
+            
+        max_long_walk_percent : Float
+            Percentage of people assigned to a hub that can have longer travel times.
+        """ 
+
         # Extract data
         dest_edges = City.ne
 
@@ -603,7 +859,7 @@ class NetworkClustering():
                     cpu_count = self.max_cores
 
                 ### only on first iteration generate random points for hubs and cluster houses based on closest hub
-                hubs,_ = self.generate_random_points(City, boundary_coordinates, start_pt_ct, destinations, zero_people_hubs)
+                hubs,_ = self.generate_points(City, boundary_coordinates, start_pt_ct, destinations, zero_people_hubs)
                 self.cluster_number = start_pt_ct
 
                 self.save_dataframe(self.hub_assignments_df, self.hub_list_dictionary, 0, 'locations', data_folder, session_name)
