@@ -283,7 +283,7 @@ def load_csv(file_path):
     frame = pd.read_csv(file_path)
     return frame
 
-def get_CBS_query(user_input, cbs_properties, buurt_index_skip=[]):
+def get_CBS_query(user_input, cbs_properties, data_folder: str, buurt_index_skip=[]):
     #Example of a CBS Query:
     #https://service.pdok.nl/cbs/wijkenbuurten/2021/wfs/v1_0?service=wfs&version=2.0.0&srsName=EPSG:3857&request=GetFeature&typeName=cbs_buurten_2021&propertyName=(wijkenbuurten:geom,wijkenbuurten:buurtcode,wijkenbuurten:buurtnaam,wijkenbuurten:aantalHuishoudens)&bbox=80847.89481955457,443393.6485061926,86835.79389681925,449094.39207776875
     
@@ -296,9 +296,6 @@ def get_CBS_query(user_input, cbs_properties, buurt_index_skip=[]):
     query = "https://service.pdok.nl/cbs/wijkenbuurten/2021/wfs/v1_0?service=wfs&version=2.0.0&srsName=EPSG:3857&request=GetFeature&typeName="
     query += database + '&propertyName=('
     
-    if not os.path.isdir('Data/runtime/'):
-        os.mkdir('Data/runtime/')
-    
     for c, property in enumerate(cbs_properties):
         query += ('wijkenbuurten:'+ property)
         if c+1 != len(cbs_properties):
@@ -308,7 +305,7 @@ def get_CBS_query(user_input, cbs_properties, buurt_index_skip=[]):
     if BBox == ['']:
         buurten = []
         #Establish a test directory to test for query results
-        file_path = 'Data/runtime/test.xml'
+        file_path = f'{data_folder}runtime/test.xml'
         for c, i in enumerate(areas):
             #First run as if every input is a municipality
             query_current = query + ')&filter=<ogc:Filter><ogc:PropertyIsEqualTo><ogc:PropertyName>gemeentenaam</ogc:PropertyName><ogc:Literal>'+i+'</ogc:Literal></ogc:PropertyIsEqualTo></ogc:Filter>'
@@ -400,6 +397,7 @@ def main():
     #BBox = [52.026, 51.974, 4.394, 4.308]
     BBox = [52.018347, 52.005217, 4.369142, 4.350504]
     url = [None, "https://maps.mail.ru/osm/tools/overpass/api/interpreter", "https://overpass.kumi.systems/api/interpreter", "https://lz4.overpass-api.de/api/interpreter"]
+    data_folder = 'data/'
 
     #GET USER INPUT
     #user_input = get_input()
@@ -445,7 +443,7 @@ def main():
     
     #building_addr = load_csv('data/runtime/building_addr.csv')
 
-    CBS_query = get_CBS_query(user_input, cbs_properties, buurt_index_skip=[0])
+    CBS_query = get_CBS_query(user_input, cbs_properties, data_folder, buurt_index_skip=[0])
     print(CBS_query)
     #get_CBS_data(CBS_query, 'data/runtime/CBS.xml')
     CBS_data = read_CBS('data/runtime/CBS.xml')

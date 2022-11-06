@@ -68,8 +68,9 @@ class CityNetwork():
     font_color = 'lightgray'
     font_size = 7
     
-    def __init__(self, name: str, coordinates: list, transport_type):
+    def __init__(self, name: str, data_folder: str, coordinates: list, transport_type):
         self.name = name
+        self.data_folder = data_folder
         self.coordinates = coordinates
         self.transport_type = transport_type
         self.graph = None
@@ -84,7 +85,17 @@ class CityNetwork():
     def __repr__(self):
         return "<CityNetwork object of {}>".format(self.name)
 
-    def load_osm_graph(self, filepath: str, query=False):
+
+    @staticmethod
+    def makedirs(path: str):
+        if not os.path.exists(path):
+            os.makedirs(path)
+        
+        if not os.path.exists(path + 'runtime/'):
+            os.makedirs(path + 'runtime/')
+        
+
+    def load_osm_graph(self, filepath: str, name: str, query=False):
         """Load an online or local osm graph
 
         If osm graph already locally available, graph will not  be retrieved
@@ -108,7 +119,9 @@ class CityNetwork():
         
         self.graph : networkx graph
             Multigraph of the streets and junctions.
-        """
+        """  
+        
+        filepath = filepath + 'runtime/' + name + '.osm'
         
         # If Electric personal vehicle: use bike data
         transport_type = self.transport_type
@@ -135,7 +148,7 @@ class CityNetwork():
         print("Finished loading")
 
 
-    def load_building_addr(self, building_addr_path: str, building_path: str, adress_path: str, cbs_path: str):
+    def load_building_addr(self, data_folder: str, name: str):
         """Load buildings and adress data, combine into one pandas Dataframe
 
         If osm server is not able to send results, please try again in 30 seconds.
@@ -163,6 +176,11 @@ class CityNetwork():
             Pandas DataFrame with data of all buildings, their adresses,
             locations and residents.
         """
+        
+        building_addr_path = data_folder + 'runtime/' + name + '_building_addresses.csv'
+        building_path = data_folder + 'runtime/' + name + '_buildings.csv'
+        adress_path = data_folder + 'runtime/' + name + '_addresses.csv'
+        cbs_path = data_folder +'runtime/'+ name + '_cbs.xml'
         
         print("Loading buildings...")
         cbs_properties = ['geom','gemiddeldeHuishoudsgrootte']#,'buurtcode','buurtnaam','gemeentenaam']
@@ -208,7 +226,7 @@ class CityNetwork():
             building_addr_df = load_csv(building_addr_path)
         
         building_addr_df = addxy_building_addr(building_addr_df)
-        CBS_query = get_CBS_query(([''], self.coordinates), cbs_properties, buurt_index_skip=[0])
+        CBS_query = get_CBS_query(([''], self.coordinates), cbs_properties, self.data_folder, buurt_index_skip=[0])
         if not (os.path.isfile(cbs_path)):
             get_CBS_data(CBS_query, cbs_path)
 
@@ -478,11 +496,45 @@ class CityNetwork():
         """
         
         object_name = name
-        path = folder + str(object_name) + '.pkl'
+        path = folder + 'runtime/' + str(object_name) + '.pkl'
         print('Saving {} to {}'.format(object_name, path))
 
         with open(path, 'wb') as file:
             pickle.dump(self, file, pickle.HIGHEST_PROTOCOL)
+
+
+    # Loading the graph as a pickle file avoids having to recalculate
+    # attributes such as speed, length etc. and is way faster
+    # Call this function through var = CityNetwork.load_graph('var')
+    @staticmethod
+    def load_graph(name: str, folder: str):
+        """Load the CityNetwork class object from a .pkl file
+        
+        Loading the graph as a .pkl file avoids having to recompute
+        and load a graph. Attributes are already saved and can be
+        reused. Call this function through var = CityNetwork.load_graph('var')
+        
+        Developed by Job de Vogel
+        
+        Parameters
+        ----------
+        name : string
+            Name of the file to load
+        
+        folder : string
+            Folder to load the file from
+        """
+        
+        object_name = name
+        path = folder + 'runtime/' + str(object_name) + '.pkl'
+
+        print("Loading...")
+        with open(path, 'rb') as file:
+            graph = pickle.load(file)
+        
+        print('Loaded {} to object...'.format(object_name))
+        
+        return graph
 
 
     def nearest_edges(self, interpolate, cpus=None, _multiply=1):
@@ -623,7 +675,7 @@ class CityNetwork():
         
         return origins
 
-    def plot(self, routes=None, origins=None, destinations=None, annotations=False, marks=None, route_color_mask=None, orig_color_mask=None, dest_color_mask=None, fig_name = None, dpi=100, save=False, show=False):
+    def plot(self, routes=None, origins=None, destinations=None, annotations=False, marks=None, route_color_mask=None, orig_color_mask=None, dest_color_mask=None, fig_name = None, session_name='temp', dpi=100, save=False, show=False):
         """Plot, save and show one or multiple images
         
         Developed by Job de Vogel
@@ -804,48 +856,10 @@ class CityNetwork():
 
         fig, ax = ox.plot._save_and_show(fig, ax, show=show)
 
-        if save:
-            path = 'data/plot_pngs'
-            
-            if not os.path.isdir(path):
-                os.mkdir(path)
-            
+        if save:           
             if fig_name == None:
-                fig.savefig(f'data/plot_pngs/plot_{time.time()}.png', format='png', dpi=dpi)
+                fig.savefig(f'{self.data_folder}{session_name}/plot_pngs/plot_{time.time()}.png', format='png', dpi=dpi)
             else:
-                fig.savefig(f'data/plot_pngs/{fig_name}.png', format='png', dpi=dpi)
+                fig.savefig(f'{self.data_folder}{session_name}/plot_pngs/{fig_name}.png', format='png', dpi=dpi)
 
         return fig, ax
-
-    # Loading the graph as a pickle file avoids having to recalculate
-    # attributes such as speed, length etc. and is way faster
-    # Call this function through var = CityNetwork.load_graph('var')
-    @staticmethod
-    def load_graph(name: str, folder: str):
-        """Load the CityNetwork class object from a .pkl file
-        
-        Loading the graph as a .pkl file avoids having to recompute
-        and load a graph. Attributes are already saved and can be
-        reused. Call this function through var = CityNetwork.load_graph('var')
-        
-        Developed by Job de Vogel
-        
-        Parameters
-        ----------
-        name : string
-            Name of the file to load
-        
-        folder : string
-            Folder to load the file from
-        """
-        
-        object_name = name
-        path = folder + str(object_name) + '.pkl'
-
-        print("Loading...")
-        with open(path, 'rb') as file:
-            graph = pickle.load(file)
-        
-        print('Loaded {} to object...'.format(object_name))
-        
-        return graph

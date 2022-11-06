@@ -58,7 +58,7 @@ def visualize_clusters(City, Clusters, text, hub_colors, save=False):
     plt.show()
 
     if save:
-        fig.savefig(f'data/plot_pngs/'+ text +f'_{time.time()}.png')
+        fig.savefig(f'{City.data_folder}plot_pngs/'+ text +f'_{time.time()}.png')
 
     return fig, ax
 
@@ -95,6 +95,6 @@ def euclid_visualize_clusters(City, Clusters, text, hub_colors, save=False):
     plt.show()
 
     if save:
-        fig.savefig(f'data/plot_pngs/'+ text +f'{time.time()}.png')
+        fig.savefig(f'{City.data_folder}plot_pngs/'+ text +f'{time.time()}.png')
 
     return fig, ax

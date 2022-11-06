@@ -57,7 +57,7 @@ class NetworkClustering():
         if not os.path.exists(folder_path):
             os.makedirs(folder_path)   
 
-        object_name = str(self.name) + '_iteration ' + str(iteration_num) + '_' + step
+        object_name = str(self.name) + '_iteration_' + str(iteration_num) + '_' + step
         path = folder_path + object_name + '.pkl'
         print('Saving {} to {}'.format(object_name + str('.pkl'), path))
 
@@ -103,7 +103,7 @@ class NetworkClustering():
             with open(path + file, 'rb') as f:
                 dataframe, hubs, name = pickle.load(f)
             
-            name = str(i).zfill(4) + '_' + session_name + '_' + name         
+            name = str(i).zfill(4) + '_' + session_name + '_' + name + '_' + str(i).zfill(4)         
 
             paths = dataframe.loc[:, 'Path']
             paths = paths.tolist()
@@ -548,6 +548,7 @@ class NetworkClustering():
             file.writelines('\n')
             file.writelines(f'Time_check: {time_check}, Long_travel_check: {long_travel}, Capacity_check: {capacity_check}, Unassigned_check: {unassigned_check} \n')
             file.writelines(f"Unassigned people out of total: {m.ceil(unassigned)}/{m.ceil(city_wide_people_served)}\n")
+            file.writelines(f"Avg. weight: {round(np.sum(np.array(average_list)) / len(average_list), 2)}, avg. std: {round(np.sum(np.array(std_list)) / len(std_list), 2)}, avg. people served: {m.ceil(np.sum(np.array(capacity_list)) / len(capacity_list))}\n")
             file.writelines('----------------\n')
             file.writelines('\n')
             
