@@ -14,6 +14,6 @@ Click on three dots ... > commit > commit staged (files are now committed)
 Click on three dots ... > Pull, push > push
 
 # Install pip in your virtual environment
-(This is done through the .yml file now)
+(This is done through the .yml file)
 # Required to install ghhops-server
 python -m pip install --upgrade pip

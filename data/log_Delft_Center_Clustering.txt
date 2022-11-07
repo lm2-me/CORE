@@ -1,0 +1,198 @@
+Logtime: 2022-11-06 16:51:58.461003
+Hub 0: avg. weight: 344.23, std. weight: 133.34, max weight 765.6, people served per hub: 6719
+Hub 1: avg. weight: 413.23, std. weight: 166.79, max weight 772.42, people served per hub: 6597
+Hub 2: avg. weight: 500.76, std. weight: 153.92, max weight 856.82, people served per hub: 1660
+
+Time_check: False, Long_travel_check: False, Capacity_check: False, Unassigned_check: True 
+Unassigned people out of total: 0/14975
+Avg. weight: 419.41, avg. std: 151.35, avg. people served: 4992
+----------------
+
+Logtime: 2022-11-06 16:52:26.383822
+Hub 0: avg. weight: 371.11, std. weight: 118.86, max weight 1096.95, people served per hub: 6587
+Hub 1: avg. weight: 455.56, std. weight: 169.54, max weight 811.29, people served per hub: 6401
+Hub 2: avg. weight: 506.05, std. weight: 143.74, max weight 792.8, people served per hub: 1988
+
+Time_check: False, Long_travel_check: False, Capacity_check: False, Unassigned_check: True 
+Unassigned people out of total: 0/14975
+Avg. weight: 444.24, avg. std: 144.04, avg. people served: 4992
+----------------
+
+Logtime: 2022-11-06 16:52:26.880497
+Hub 0: avg. weight: 371.11, std. weight: 118.86, max weight 1096.95, people served per hub: 6587
+Hub 1: avg. weight: 455.56, std. weight: 169.54, max weight 811.29, people served per hub: 6401
+Hub 2: avg. weight: 506.05, std. weight: 143.74, max weight 792.8, people served per hub: 1988
+
+Time_check: False, Long_travel_check: False, Capacity_check: False, Unassigned_check: True 
+Unassigned people out of total: 0/14975
+Avg. weight: 444.24, avg. std: 144.04, avg. people served: 4992
+----------------
+
+Logtime: 2022-11-06 16:53:30.695687
+Hub 0: avg. weight: 362.2, std. weight: 105.5, max weight 1101.52, people served per hub: 6219
+Hub 1: avg. weight: 392.25, std. weight: 138.36, max weight 790.79, people served per hub: 4587
+Hub 2: avg. weight: 507.53, std. weight: 142.75, max weight 792.8, people served per hub: 2005
+Hub 3: avg. weight: 287.05, std. weight: 147.88, max weight 597.02, people served per hub: 2164
+
+Time_check: False, Long_travel_check: False, Capacity_check: False, Unassigned_check: True 
+Unassigned people out of total: 0/14975
+Avg. weight: 387.26, avg. std: 133.62, avg. people served: 3744
+----------------
+
+Logtime: 2022-11-06 16:53:58.807804
+Hub 0: avg. weight: 374.81, std. weight: 123.09, max weight 927.96, people served per hub: 5940
+Hub 1: avg. weight: 370.16, std. weight: 128.46, max weight 909.06, people served per hub: 5476
+Hub 2: avg. weight: 517.11, std. weight: 148.26, max weight 846.59, people served per hub: 1778
+Hub 3: avg. weight: 374.48, std. weight: 101.07, max weight 659.1, people served per hub: 1782
+
+Time_check: False, Long_travel_check: False, Capacity_check: False, Unassigned_check: True 
+Unassigned people out of total: 0/14975
+Avg. weight: 409.14, avg. std: 125.22, avg. people served: 3744
+----------------
+
+Logtime: 2022-11-06 16:53:59.313964
+Hub 0: avg. weight: 374.81, std. weight: 123.09, max weight 927.96, people served per hub: 5940
+Hub 1: avg. weight: 370.16, std. weight: 128.46, max weight 909.06, people served per hub: 5476
+Hub 2: avg. weight: 517.11, std. weight: 148.26, max weight 846.59, people served per hub: 1778
+Hub 3: avg. weight: 374.48, std. weight: 101.07, max weight 659.1, people served per hub: 1782
+
+Time_check: False, Long_travel_check: False, Capacity_check: False, Unassigned_check: True 
+Unassigned people out of total: 0/14975
+Avg. weight: 409.14, avg. std: 125.22, avg. people served: 3744
+----------------
+
+Logtime: 2022-11-06 16:54:57.458871
+Hub 0: avg. weight: 506.27, std. weight: 118.13, max weight 795.79, people served per hub: 4884
+Hub 1: avg. weight: 348.69, std. weight: 123.28, max weight 962.52, people served per hub: 5661
+Hub 2: avg. weight: 587.15, std. weight: 204.51, max weight 1023.88, people served per hub: 1946
+Hub 3: avg. weight: 175.86, std. weight: 72.77, max weight 409.15, people served per hub: 1092
+Hub 4: avg. weight: 331.59, std. weight: 104.49, max weight 593.73, people served per hub: 1393
+
+Time_check: False, Long_travel_check: False, Capacity_check: False, Unassigned_check: True 
+Unassigned people out of total: 0/14975
+Avg. weight: 389.91, avg. std: 124.63, avg. people served: 2995
+----------------
+
+Logtime: 2022-11-06 16:54:58.140056
+Hub 0: avg. weight: 506.27, std. weight: 118.13, max weight 795.79, people served per hub: 4884
+Hub 1: avg. weight: 348.69, std. weight: 123.28, max weight 962.52, people served per hub: 5661
+Hub 2: avg. weight: 587.15, std. weight: 204.51, max weight 1023.88, people served per hub: 1946
+Hub 3: avg. weight: 175.86, std. weight: 72.77, max weight 409.15, people served per hub: 1092
+Hub 4: avg. weight: 331.59, std. weight: 104.49, max weight 593.73, people served per hub: 1393
+
+Time_check: False, Long_travel_check: False, Capacity_check: False, Unassigned_check: True 
+Unassigned people out of total: 0/14975
+Avg. weight: 389.91, avg. std: 124.63, avg. people served: 2995
+----------------
+
+Logtime: 2022-11-06 16:56:03.283616
+Hub 0: avg. weight: 331.09, std. weight: 101.26, max weight 648.14, people served per hub: 3652
+Hub 1: avg. weight: 271.92, std. weight: 104.74, max weight 545.4, people served per hub: 3486
+Hub 2: avg. weight: 472.31, std. weight: 107.05, max weight 630.21, people served per hub: 1132
+Hub 3: avg. weight: 272.59, std. weight: 124.25, max weight 603.98, people served per hub: 1382
+Hub 4: avg. weight: 314.76, std. weight: 159.65, max weight 1020.08, people served per hub: 4010
+Hub 5: avg. weight: 266.2, std. weight: 136.15, max weight 604.94, people served per hub: 1316
+
+Time_check: False, Long_travel_check: False, Capacity_check: False, Unassigned_check: True 
+Unassigned people out of total: 0/14975
+Avg. weight: 321.48, avg. std: 122.19, avg. people served: 2496
+----------------
+
+Logtime: 2022-11-06 16:56:39.777523
+Hub 0: avg. weight: 263.18, std. weight: 86.25, max weight 913.59, people served per hub: 3668
+Hub 1: avg. weight: 253.59, std. weight: 77.82, max weight 481.15, people served per hub: 2555
+Hub 2: avg. weight: 377.13, std. weight: 78.95, max weight 507.91, people served per hub: 733
+Hub 3: avg. weight: 269.86, std. weight: 105.69, max weight 516.55, people served per hub: 1624
+Hub 4: avg. weight: 276.41, std. weight: 106.49, max weight 699.63, people served per hub: 4591
+Hub 5: avg. weight: 264.75, std. weight: 112.79, max weight 493.29, people served per hub: 1806
+
+Time_check: False, Long_travel_check: False, Capacity_check: False, Unassigned_check: True 
+Unassigned people out of total: 0/14975
+Avg. weight: 284.15, avg. std: 94.66, avg. people served: 2496
+----------------
+
+Logtime: 2022-11-06 16:56:40.488675
+Hub 0: avg. weight: 263.18, std. weight: 86.25, max weight 913.59, people served per hub: 3668
+Hub 1: avg. weight: 253.59, std. weight: 77.82, max weight 481.15, people served per hub: 2555
+Hub 2: avg. weight: 377.13, std. weight: 78.95, max weight 507.91, people served per hub: 733
+Hub 3: avg. weight: 269.86, std. weight: 105.69, max weight 516.55, people served per hub: 1624
+Hub 4: avg. weight: 276.41, std. weight: 106.49, max weight 699.63, people served per hub: 4591
+Hub 5: avg. weight: 264.75, std. weight: 112.79, max weight 493.29, people served per hub: 1806
+
+Time_check: False, Long_travel_check: False, Capacity_check: False, Unassigned_check: True 
+Unassigned people out of total: 0/14975
+Avg. weight: 284.15, avg. std: 94.66, avg. people served: 2496
+----------------
+
+Logtime: 2022-11-06 16:57:51.268124
+Hub 0: avg. weight: 265.09, std. weight: 95.34, max weight 561.97, people served per hub: 3654
+Hub 1: avg. weight: 247.19, std. weight: 83.66, max weight 875.93, people served per hub: 2587
+Hub 2: avg. weight: 54.56, std. weight: 24.47, max weight 92.41, people served per hub: 572
+Hub 3: avg. weight: 244.11, std. weight: 70.4, max weight 414.16, people served per hub: 1152
+Hub 4: avg. weight: 276.04, std. weight: 90.93, max weight 587.37, people served per hub: 4478
+Hub 5: avg. weight: 231.86, std. weight: 92.76, max weight 498.52, people served per hub: 1803
+Hub 6: avg. weight: 190.66, std. weight: 92.8, max weight 377.07, people served per hub: 733
+
+Time_check: False, Long_travel_check: False, Capacity_check: False, Unassigned_check: True 
+Unassigned people out of total: 0/14975
+Avg. weight: 215.64, avg. std: 78.62, avg. people served: 2140
+----------------
+
+Logtime: 2022-11-06 16:58:24.011524
+Hub 0: avg. weight: 265.21, std. weight: 94.33, max weight 560.25, people served per hub: 3694
+Hub 1: avg. weight: 269.48, std. weight: 94.13, max weight 878.56, people served per hub: 2854
+Hub 2: avg. weight: 54.56, std. weight: 24.47, max weight 92.41, people served per hub: 572
+Hub 3: avg. weight: 274.72, std. weight: 88.08, max weight 420.17, people served per hub: 768
+Hub 4: avg. weight: 265.59, std. weight: 90.07, max weight 573.89, people served per hub: 4334
+Hub 5: avg. weight: 231.25, std. weight: 92.53, max weight 498.69, people served per hub: 1801
+Hub 6: avg. weight: 170.66, std. weight: 86.82, max weight 456.94, people served per hub: 955
+
+Time_check: False, Long_travel_check: False, Capacity_check: False, Unassigned_check: True 
+Unassigned people out of total: 0/14975
+Avg. weight: 218.78, avg. std: 81.49, avg. people served: 2140
+----------------
+
+Logtime: 2022-11-06 16:58:24.690289
+Hub 0: avg. weight: 265.21, std. weight: 94.33, max weight 560.25, people served per hub: 3694
+Hub 1: avg. weight: 269.48, std. weight: 94.13, max weight 878.56, people served per hub: 2854
+Hub 2: avg. weight: 54.56, std. weight: 24.47, max weight 92.41, people served per hub: 572
+Hub 3: avg. weight: 274.72, std. weight: 88.08, max weight 420.17, people served per hub: 768
+Hub 4: avg. weight: 265.59, std. weight: 90.07, max weight 573.89, people served per hub: 4334
+Hub 5: avg. weight: 231.25, std. weight: 92.53, max weight 498.69, people served per hub: 1801
+Hub 6: avg. weight: 170.66, std. weight: 86.82, max weight 456.94, people served per hub: 955
+
+Time_check: False, Long_travel_check: False, Capacity_check: False, Unassigned_check: True 
+Unassigned people out of total: 0/14975
+Avg. weight: 218.78, avg. std: 81.49, avg. people served: 2140
+----------------
+
+Logtime: 2022-11-06 16:59:34.763081
+Hub 0: avg. weight: 207.37, std. weight: 89.42, max weight 476.0, people served per hub: 2245
+Hub 1: avg. weight: 266.77, std. weight: 97.02, max weight 895.77, people served per hub: 2292
+Hub 2: avg. weight: 54.56, std. weight: 24.47, max weight 92.41, people served per hub: 572
+Hub 3: avg. weight: 262.96, std. weight: 53.69, max weight 382.27, people served per hub: 1118
+Hub 4: avg. weight: 260.7, std. weight: 89.86, max weight 570.07, people served per hub: 4238
+Hub 5: avg. weight: 232.73, std. weight: 93.29, max weight 498.72, people served per hub: 1810
+Hub 6: avg. weight: 181.68, std. weight: 76.67, max weight 410.72, people served per hub: 1124
+Hub 7: avg. weight: 150.19, std. weight: 66.42, max weight 389.02, people served per hub: 1579
+
+Time_check: False, Long_travel_check: False, Capacity_check: False, Unassigned_check: True 
+Unassigned people out of total: 0/14975
+Avg. weight: 202.12, avg. std: 73.86, avg. people served: 1872
+----------------
+
+Logtime: 2022-11-06 16:59:35.615772
+Hub 0: avg. weight: 207.37, std. weight: 89.42, max weight 476.0, people served per hub: 2245
+Hub 1: avg. weight: 266.77, std. weight: 97.02, max weight 895.77, people served per hub: 2292
+Hub 2: avg. weight: 54.56, std. weight: 24.47, max weight 92.41, people served per hub: 572
+Hub 3: avg. weight: 262.96, std. weight: 53.69, max weight 382.27, people served per hub: 1118
+Hub 4: avg. weight: 260.7, std. weight: 89.86, max weight 570.07, people served per hub: 4238
+Hub 5: avg. weight: 232.73, std. weight: 93.29, max weight 498.72, people served per hub: 1810
+Hub 6: avg. weight: 181.68, std. weight: 76.67, max weight 410.72, people served per hub: 1124
+Hub 7: avg. weight: 150.19, std. weight: 66.42, max weight 389.02, people served per hub: 1579
+
+Time_check: False, Long_travel_check: False, Capacity_check: False, Unassigned_check: True 
+Unassigned people out of total: 0/14975
+Avg. weight: 202.12, avg. std: 73.86, avg. people served: 1872
+----------------
+
