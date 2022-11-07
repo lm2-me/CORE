@@ -245,12 +245,6 @@ def runWFC(dx, dy, mh, empty):
     print([tiles[item.tile_options[0]].height for item in grid])
 
 
-    '''fake_3d_points = []
-    for i in range(len(grid)):
-        fake_3d_points.append(r3d.Point3d(listOfTileNames.index(tiles[grid[i].tile_options[0]].name), tiles[grid[i].tile_options[0]].rotation, tiles[grid[i].tile_options[0]].height))
-    #print(fake_3d_points)
-    #r3d.Point3d()
-    return fake_3d_points'''
 
     #returns name indices, rotation, heights
     return (
