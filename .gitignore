@@ -131,4 +131,7 @@ dmypy.json
 # Removing vscode configuration to not confuse other people
 .vscode
 
-code/data
+code/cache
+/cache
+
+code/hops/app.bat

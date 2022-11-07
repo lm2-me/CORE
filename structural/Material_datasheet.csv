@@ -1,0 +1,13 @@
+﻿Material Name,Price (EUR/kg),Density (kg/m3),E Youngs Modules (MPa),E secondary (Mpa),Yield strength (Mpa),Yield secondary (Mpa),Shear mod primary G12 (Mpa),Shear mod secondary G13 (Mpa),Shear strength lowest t12 (Mpa),Poissons ratio,CO2 primary production (kg/kg),Water use primary production (l/kg),UV Radiation Resistance (1-4),Lifespan (years),Distance source to (Delft),Cross-section type
+Birch (betula alleghaniensis),0.855,690,15500,2200,55,3.8,1100,240,13,0.35,0.6,700,3,35,1000,Bulk
+Cork (high density),6.5,200,40,,1.6,,6,,,0.2,0.2,700,3,10,500,Bulk
+Cardboard,0.95,700,6000,,25,,1500,,,0.39,0.96,93,2,5,200,Bulk
+MDF,0.36,750,4000,,10.5,,500,,4.5,0.25,0.95,700,3,35,200,Bulk
+MDF Eco (75%),0.36,750,3000,,7.5,,400,,3.5,0.25,0.9,700,3,35,200,Bulk
+PET (30% glass fiber recycled content),1.4,1580,9500,,132,,3500,,,0.35,1.9,180,2,25,50,Bulk
+HDPE (general purpose) (plastic bags),0.74,958,1080,,28,,380,,,0.4,1.9,58,2,25,50,Bulk
+Reinforced concrete (8% low carbon steel),0.3,5350,45800,,9.4,,19400,,,0.22,0.4,25,4,60,100,Bulk
+Brick (Engineered sections),1.5,2500,80000,,8,,18000,,,0.22,0.25,7,4,60,100,Bulk
+Aluminium (commercial purity 1200 O),1.5,2720,70500,,40,,26000,,,0.33,8.9,1190,4,60,200,I-beam
+Steel (galvanised AISI 1010),0.68,7850,210000,,250,,82000,,,0.29,1.4,46,4,40,200,I-beam
+Mycelium composite,,,,,,,,,,,,,,,,
