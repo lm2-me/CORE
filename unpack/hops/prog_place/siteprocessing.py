@@ -1,3 +1,20 @@
+
+"""
+functions related to creating and optimizing hub locations
+
+By: 
+Lisa-Marie Mueller, TU Delft
+
+Classes:
+    - NetworkClustering
+
+Methods:
+    >>> divide_site: Turn site into grid
+    >>> place_packages: Place package module on site
+    >>> place_modules: Place modules on site
+    >>> labelstopoints: Convert labels to points
+"""
+
 from cmath import nan
 import ghhops_server as hs
 import rhino3dm as r3d
@@ -9,6 +26,32 @@ import copy
 #see app.py file for description of each gh node and more specific information regarding the inputs and outputs
 
 def divide_site(site: r3d.Surface, road_lines_tree, sidewalk_lines_tree, grid_size: float, context, sun_hours):
+    """Grasshopper component: Turn site into grid
+        
+        Developed by Lisa-Marie Mueller
+
+        Parameters
+        ----------
+        site : r3d.Surface
+            Surface of site
+
+        road_lines_tree : tree
+            Lines representing roads.
+        
+        sidewalk_lines_tree : tree
+            Lines representing sidewalks.
+        
+        grid_size : integer
+            Distance of grid step size.
+        
+        context : list
+            Points locating context.
+        
+        site_hours : tree
+            number of sun hours per point
+
+        """  
+
     sidewalk_lines: list[r3d.Line] = sidewalk_lines_tree['{0}']
     road_lines: list[r3d.Line] = road_lines_tree['{0}']
     context_matrix = np.array(h.tree_to_matrix(context))
@@ -102,6 +145,35 @@ def divide_site(site: r3d.Surface, road_lines_tree, sidewalk_lines_tree, grid_si
     return h.list_to_tree(srfpts), h.list_to_tree(values_normalized), h.list_to_tree(label_array_np.tolist())
 
 def place_packages(srfpts_tree, cost_function_tree, labels_tree, module_use, module_geometry: r3d.Surface, module_mask, door):
+    """Grasshopper component: Place package module on site
+    
+    Developed by Lisa-Marie Mueller
+
+    Parameters
+    ----------
+    srfpts_tree : tree
+        points dividing site surface
+
+    cost_function_tree : tree
+        cost function for entire site.
+    
+    labels_tree : tree
+        labels of each point in grid.
+    
+    module_use : tree
+        human readable designation for module.
+    
+    module_geometry : r3d.Geometry
+        surface for module area.
+    
+    module_mask : tree
+        module mask to mask cost function for relevant values
+    
+    door : tree
+        point of door locations
+
+    """  
+
     ### convert door locations to points
     door_points = []
     door_floats = [float(v) for v in door.split(',')]
@@ -220,7 +292,7 @@ def place_packages(srfpts_tree, cost_function_tree, labels_tree, module_use, mod
     success_move = module_geometry.Translate(move_vector)
     print('moved packages module?', success_move)
 
-                ### move door location
+    ### move door location
     for i, d in enumerate(door_points):
         door_points[i] = r3d.Point3d(d.X + move_vector.X, d.Y + move_vector.Y, 0)
         print('moved packages module doors')
@@ -254,6 +326,35 @@ def place_packages(srfpts_tree, cost_function_tree, labels_tree, module_use, mod
     return module_geometry, h.list_to_tree(h.matrix_floats2str(out_cost_function_matrix)), module_edge, h.list_to_tree(label_array)
 
 def place_modules(srfpts_tree, cost_function_tree, label_array, module_use_tree, module_geometry_list, module_mask_tree, door_tree):
+    """Grasshopper component: Place modules on site
+    
+    Developed by Lisa-Marie Mueller
+
+    Parameters
+    ----------
+    srfpts_tree : tree
+        points dividing site surface
+
+    cost_function_tree : tree
+        cost function for entire site.
+    
+    label_array : list
+        labels of each point in grid.
+    
+    module_use : tree
+        human readable designation for module.
+    
+    module_geometry : list
+        surface for module area.
+    
+    module_mask : tree
+        module mask to mask cost function for relevant values
+    
+    door : tree
+        point of door locations
+
+    """  
+
     ### convert cost function and srf points information from gh trees to np array
     srfpts_matrix = np.array(h.tree_to_matrix(srfpts_tree))
     grid_size = abs(srfpts_matrix[0,0].X - srfpts_matrix[0,1].X)
@@ -314,13 +415,10 @@ def place_modules(srfpts_tree, cost_function_tree, label_array, module_use_tree,
     for num, matrix in enumerate(module_masked_cost_all):
         for i, row in enumerate(matrix):
             for j, weights in enumerate(row):
-                print(weights)
                 total_weight = 0
                 for weight in weights:
-                    #print('weight', weight)
                     if weight != m.inf:
                         total_weight += weight
-                #print('total weight', total_weight)
                 if total_weight == 0:
                     combined_module_masked_cost_all[num][i][j] = m.inf
                 else:
@@ -335,10 +433,12 @@ def place_modules(srfpts_tree, cost_function_tree, label_array, module_use_tree,
         print('placing module ',  module_use[num])
         use_cost_function_matrix = copy.deepcopy(combined_module_masked_cost_all[num])
 
-        for i, row in enumerate(label_array_matrix):
+        for i, row in enumerate(label_array_matrix_revised):
             for j, label in enumerate(row):
                 if label == 's' or label == 'i' or label == 'e' or label == 'x':
                     use_cost_function_matrix[i][j] = m.inf
+
+        print(label_array_matrix_revised)
 
         points_to_order = []
         values_to_order = []
@@ -383,54 +483,83 @@ def place_modules(srfpts_tree, cost_function_tree, label_array, module_use_tree,
 
                 corner_labels_np = np.array(corner_labels)
 
-                _, edges = h.divide_surface(geo, grid_size)
+                centers, edges = h.divide_surface(geo, grid_size)
 
                 edge_labels = []
                 for point in edges:
-                    if point != None:
+                    valid_index = False
+
+                    if (0 <= round(point.X) < len(label_array_matrix_revised[0])) and (0 <= round(point.Y) < len(label_array_matrix_revised)):
+                        valid_index = True
+
+                    if point != None and valid_index:
                         edge_labels.append(label_array_matrix_revised[round(point.X), round(point.Y)])
                     else:
                         edge_labels.append(None)
                 edge_labels_np = np.array(edge_labels)
 
-                if (np.isin('i', corner_labels_np) or
-                    np.isin('o', corner_labels_np) or
-                    np.isin('x', corner_labels_np) or
-                    np.isin(None, corner_labels_np) or
-                    np.count_nonzero(corner_labels_np == 'b') < 2 or
-                    np.isin('x', edge_labels_np) or
-                    np.count_nonzero(edge_labels_np == 'b') == len(edge_labels_np) or
-                    (np.count_nonzero(edge_labels_np == 'b') + np.count_nonzero(edge_labels_np == 'i')) == len(edge_labels_np)
+                center_labels = []
+                
+                if isinstance(centers[0], list):
+                    center_list = centers[0]
+                
+                else:
+                    center_list = centers
+
+                for cntr_pt in center_list:
+                    valid_index = False
+
+                    if 0 <= round(cntr_pt.X) < len(label_array_matrix_revised[0]) and (0 <= round(cntr_pt.Y) < len(label_array_matrix_revised)):
+                        valid_index = True
+
+                    if point != None and valid_index:
+                        center_labels.append(label_array_matrix_revised[round(cntr_pt.X), round(cntr_pt.Y)])
+                    else:
+                        center_labels.append(None)
+                center_labels_np = np.array(center_labels)
+
+                if ((np.isin('b', center_labels_np)) or
+                    (np.isin('x', center_labels_np)) or
+                    (np.isin('i', center_labels_np)) or
+                    (np.isin('o', center_labels_np)) or
+                    (np.isin('i', corner_labels_np)) or
+                    (np.isin('o', corner_labels_np)) or
+                    (np.isin('x', corner_labels_np)) or
+                    (np.isin(None, corner_labels_np)) or
+                    (np.count_nonzero(corner_labels_np == 'b') < 2) or
+                    (np.isin('x', edge_labels_np)) or
+                    (np.count_nonzero(edge_labels_np == 'b') == len(edge_labels_np)) or
+                    ((np.count_nonzero(edge_labels_np == 'b') + np.count_nonzero(edge_labels_np == 'i')) == len(edge_labels_np))
                 ):
                     
                     axis = h.vector3d_2pts(mvd_tp_left, r3d.Point3d(mvd_tp_left.X, mvd_tp_left.Y, 10))
                     success_rot = geo.Rotate(m.pi / 2., axis, mvd_tp_left)
                     rotation_count +=1
-                    # print('rotate module?', success_rot)
                 else:
                     valid_placement = True
-                    # print('valid placement 2: ', valid_placement)
                     break
-                    
+
             if valid_placement:
                 corner_rot_point = mvd_tp_left
                 rotation_degree = rotation_count * (m.pi / 2.)
                 move_amount = move_vector
+
                 break
 
             print("no valid position for this module at this location")
         
         if not valid_placement:
             print("no valid position for this module")
-        
-        ### move door location
+
+        ### move door locations
         for i, d in enumerate(door_points[num]):
             if d == None:
                 break
             else:
-                door_points[num][i] = r3d.Point3d(d.X + move_amount.X, d.Y + move_amount.Y, 0)
+                moved_point = r3d.Point3d(d.X + move_amount.X, d.Y + move_amount.Y, 0)
+                door_points[num][i] = moved_point
                 print('moved module doors')
-        
+
         ### rotate door location
         for i, d in enumerate(door_points[num]):
             if d == None:
@@ -456,6 +585,20 @@ def place_modules(srfpts_tree, cost_function_tree, label_array, module_use_tree,
     return module_geometry_list, h.list_to_tree(out_module_edges), h.list_to_tree(label_array_matrix_revised.tolist())
 
 def labelstopoints(srfpts_tree, label_array):
+    """Grasshopper component: conver labels to points
+    
+    Developed by Lisa-Marie Mueller
+
+    Parameters
+    ----------
+    srfpts_tree : tree
+        points dividing site surface
+
+    label_array : tree
+        labels of each point in grid.
+
+    """  
+
     srfpts_matrix = np.array(h.tree_to_matrix(srfpts_tree))
     label_array_matrix = np.array(h.tree_to_matrix(label_array))
 
