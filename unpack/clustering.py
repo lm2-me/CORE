@@ -70,6 +70,17 @@ class NetworkClustering():
 
         step : string
             Name for the step for legibility of saved files.
+        
+        Related class object parameters
+        ---------
+        self.name : String
+            The Object name
+
+        self.session_name : String
+            The name of the current session so the save files are not overwritten
+
+        self.iteration : Integer
+            The itteration of hub placement
         """  
         session_name = self.session_name
         iteration = self.iteration 
@@ -111,6 +122,11 @@ class NetworkClustering():
 
         session_name : String
             Name of the session.
+        
+        Related class object parameters
+        ---------
+        self.iteration : Integer
+            The itteration of hub placement
         """ 
         hub_locations = []
         for hub in hubs.values():
@@ -146,6 +162,7 @@ class NetworkClustering():
 
         session_name : String
             Name of the session.
+                Related class object parameters
         """ 
 
         cluster_iterations = []
@@ -197,6 +214,23 @@ class NetworkClustering():
 
         Path : String
             Path to loaded pickle file.
+        
+        Related class object parameters
+        ---------
+        self.name : String
+            The Object name
+
+        self.session_name : String
+            The name of the current session so the save files are not overwritten
+
+        self.iteration : Integer
+            The itteration of hub placement
+
+        self.hub_list_dictionary : Ordered Dictionary
+            The list of hub locations and associated data
+
+        self.hub_assignments_df : Pandas Dataframe
+            The information about which hub has been assigned to which building
 
         """ 
         if os.path.isfile(path):
@@ -224,6 +258,13 @@ class NetworkClustering():
 
         City : Object
             CityNetwork object of the city being analyzed.
+                Related class object parameters
+
+        Related class object parameters
+        ---------
+
+        self.hub_assignments_df : Pandas Dataframe
+            The information about which hub has been assigned to which building
 
         """ 
         hub_assignments_df = self.hub_assignments_df
@@ -314,6 +355,15 @@ class NetworkClustering():
 
         zero_people_hubs : List
             A list of hub dictionary keys that denote which hubs have no people assigned.
+        
+        Related class object parameters
+        ---------
+
+        self.hub_list_dictionary : Ordered Dictionary
+            The list of hub locations and associated data
+
+        self.hub_assignments_df : Pandas Dataframe
+            The information about which hub has been assigned to which building
 
         """ 
         # Print current hub_dictionary state
@@ -422,6 +472,15 @@ class NetworkClustering():
         orig_yx_transf : List of Tupples
             The hub coordinates listed as (y,x).
 
+        Related class object parameters
+        ---------
+
+        self.hub_list_dictionary : Ordered Dictionary
+            The list of hub locations and associated data
+
+        self.hub_assignments_df : Pandas Dataframe
+            The information about which hub has been assigned to which building
+
         """ 
         ### get hub locations from hub list dictionary
         hub_names, hub_yx_transf = get_yx_transf_from_dict(self.hub_list_dictionary)
@@ -453,6 +512,14 @@ class NetworkClustering():
 
         boundary_coordinates : List
             [N, S, E, W] coordinates denoting the boundaries of the city.
+        
+         Related class object parameters
+        ---------
+        self.hub_list_dictionary : Ordered Dictionary
+            The list of hub locations and associated data
+
+        self.hub_assignments_df : Pandas Dataframe
+            The information about which hub has been assigned to which building
 
         """ 
         hub_dictionary = self.hub_list_dictionary
@@ -582,6 +649,16 @@ class NetworkClustering():
 
         session_name : String
             Name of the session.
+        
+        Related class object parameters
+        ---------
+
+        self.hub_list_dictionary : Ordered Dictionary
+            The list of hub locations and associated data
+
+        self.hub_assignments_df : Pandas Dataframe
+            The information about which hub has been assigned to which building
+
         """ 
         # find and save average time and people served to hub_dictionary
         hub_dictionary = self.hub_list_dictionary
@@ -819,6 +896,33 @@ class NetworkClustering():
             
         max_long_walk_percent : Float
             Percentage of people assigned to a hub that can have longer travel times.
+        
+                Related class object parameters
+        ---------
+        self.name : String
+            The Object name
+
+        self.session_name : String
+            The name of the current session so the save files are not overwritten
+
+        self.iteration : Integer
+            The itteration of hub placement
+
+        self.kmeansstep : Integer
+            The step of k-means clustering
+
+        self.hub_list_dictionary : Ordered Dictionary
+            The list of hub locations and associated data
+
+        self.hub_assignments_df : Pandas Dataframe
+            The information about which hub has been assigned to which building
+
+        self.max_cores : Integer
+            The maximum number of cores that can be used for computing
+
+        self.cluster_number : Integer
+            The number of hubs placed
+            
         """ 
 
         # Extract data

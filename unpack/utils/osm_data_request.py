@@ -9,12 +9,28 @@ from shapely.geometry import Point
 import os
 
 '''
+This code, developed by Jirri van den Bos, is able to gather OpenStreetMap
+data through the Overpass API
+
 Retrieve OSM and BAG building data and adresses.
 
 By: Jirri van den Bos, TU Delft
 '''
 
 def get_input():
+    """Optional callable function to gather an input of either names or coordinates
+    to be used for the rest of the algorithm. Names are supported for all names found
+    in both OpenStreetMap and CBS data. Boundingbox is defined using latitude and 
+    longitude in order N,S,E,W. This function contains error catching for a 
+    collection of potentially harmful inputs. 
+    
+    Args:
+
+    Returns:
+        [areas, BBox] : List of defined areas or BBox
+            List of either a (list of) named area(s) or a Bounding Box.
+    """
+    
     #Input the City or Area Name
     areas = [str(input("Please input one or multiple valid city or area names from the OSM database, comma seperated and case sensitive: "))]
     areas = [str(i).strip() for i in areas[0].split(',')]
@@ -77,15 +93,36 @@ def get_input():
     except UnboundLocalError:
         raise UnboundLocalError("Neither area name or BBox was detected, terminating")
 
-#Function to reorder a BBox
 def reorder_BBox(BBox_in, new_order):
+    """Reformat a BBox to a specified order.
+
+    Args:
+        BBox_in : list
+            list of 4 Bounding Box coordinates.
+        
+        new_order : list of integers
+            List of 4 integers defining the new BBox order.
+    
+    Returns:
+        BBox_out : list
+            list of 4 Bounding Box coordinates.
+    """
     BBox_out = []
     for i in new_order:
         BBox_out.append(BBox_in[i])
     return BBox_out
 
-#Generate the OVERPASS API query for addresses 
 def get_addr_query(user_input):
+    """Use an input of BBox or Area to generate an address query for the Overpass API.
+
+    Args:
+        user_input : list of defined areas or BBox
+            List of either a (list of) named area(s) or a Bounding Box.
+    
+    Returns:
+        query : string
+            String containing the address query.
+    """
     areas = user_input[0]
     BBox = user_input[1]
     #If a BBox is provided, use it
@@ -106,8 +143,17 @@ def get_addr_query(user_input):
         query += ');out;'
     return query
 
-#Generate the OVERPASS API query for buildings
 def get_building_query(user_input):
+    """Use an input of BBox or Area to generate a building query for the Overpass API.
+
+    Args:
+        user_input : list of defined areas or BBox
+            List of either a (list of) named area(s) or a Bounding Box.
+    
+    Returns:
+        query : string
+            String containing the building query.
+    """
     areas = user_input[0]
     BBox = user_input[1]
     #If a BBox is provided, use it
@@ -128,8 +174,20 @@ def get_building_query(user_input):
         query += ');out center meta;'
     return query
 
-#Use a OVERPASS API Query to call addresses
 def get_osm_addr(query, url=None):
+    """Use an address query to get a Dataframe of adresses from the Overpass API.
+
+    Args:
+        query : string
+            String containing the address query.
+
+        url : string
+            Optional url to use for the Overpass API call, if left blank the standard is used.
+    
+    Returns:
+        addr_frame : Dataframe 
+            Dataframe containing the address latitude, longitude and amenity type.
+    """
     #Running the API Call
     api = overpy.Overpass(url)
     print("Searching for adresses...")
@@ -150,8 +208,20 @@ def get_osm_addr(query, url=None):
     
     return addr_frame
 
-#Use a OVERPASS API Query to call buildings
 def get_osm_building(query, url=None):
+    """Use a building query to get a Dataframe of building center points from the Overpass API.
+
+    Args:
+        query : string
+            String containing the address query.
+
+        url : string
+            Optional url to use for the Overpass API call, if left blank the standard is used.
+    
+    Returns:
+        building_frame : Dataframe 
+            Dataframe containing the building center latitude and longitude.
+    """
     #Running the API Call
     api = overpy.Overpass(url)
     print("Searching for buildings...")
@@ -171,8 +241,23 @@ def get_osm_building(query, url=None):
     
     return(building_frame)
 
-#Running closest point comparisons between building centers and adresses
 def compare_building_addr(building_frame:pd.DataFrame, addr_frame:pd.DataFrame):
+    """Compare addresses coordinates to the buildings centres using a closest point analysis
+    to assign a number of addresses and amenities to a building.
+    Buildings with 0 addresses are removed.
+
+    Args:
+        building_frame : Dataframe 
+            Dataframe containing the building centres latitude and longitude.
+        
+        building_frame : Dataframe 
+            Dataframe containing the address latitude, longitude and amenities.
+   
+    Returns:
+        building_addr : Dataframe 
+            Dataframe containing the building centres (lat,lon) with associated number of
+            addresses and amenity types.
+    """
     #Initialize arrays from dataframes
     building_array = building_frame[['center_lat', 'center_lon']].to_numpy()
     addr_array = addr_frame[['latitude', 'longitude', 'amenity']].to_numpy(na_value=None)
@@ -210,6 +295,18 @@ def compare_building_addr(building_frame:pd.DataFrame, addr_frame:pd.DataFrame):
 
 #Function to add EPSG:3857 X,Y coordinates to the building_addr dataframe
 def addxy_building_addr(building_addr):
+    """Add EPSG:3857 X,Y coordinates to the building_addr Dataframe by transforming (lat, lon).
+
+    Args:
+        building_addr : Dataframe 
+            Dataframe containing the building centres (lat,lon) with associated number of
+            addresses and amenity types.
+           
+    Returns:
+        building_addr : Dataframe 
+            Dataframe containing the building centres (lat,lon) with associated number of
+            addresses, amenity types and EPSG:3857 XY coordinates.
+    """
     #Creating and transforming tuples of lat,lon
     coordinates = building_addr.loc[:, ['latitude', 'longitude']]
     origins = list(coordinates.itertuples(index=False, name=None))
@@ -226,6 +323,26 @@ def addxy_building_addr(building_addr):
 
 #Function to add CBS Buurt data to the building_addr dataframe
 def compare_building_cbs(building_addr, cbs_data, cbs_properties):
+    """Compare CBS population density data to the building_address data to add
+    people per building to the building_addr Dataframe by checking if a building
+    is inside a buurt polygon.
+
+    Args:
+        building_addr : Dataframe 
+            Dataframe containing the building centres (lat,lon) with associated number of
+            addresses and amenity types.
+        
+        cbs_data : Dataframe 
+            Dataframe containing the CBS Buurt outlines and associated population density.
+
+        cbs_properties : list of strings
+            List of CBS WFS ids to gather during a CBS WFS Query.
+           
+    Returns:
+        building_addr : Dataframe 
+            Dataframe containing the building centres (lat,lon) with associated number of
+            addresses, amenity types, EPSG:3857 XY coordinates and people per building.
+    """
     print('Assigning buildings to CBS buurt')
     #Creating shapely points of X,Y coordinates
     coordinates = building_addr.loc[:, ['x', 'y']]
@@ -284,6 +401,27 @@ def load_csv(file_path):
     return frame
 
 def get_CBS_query(user_input, cbs_properties, data_folder: str, buurt_index_skip=[]):
+    """Generate a WFS XML Query to access the CBS wijken en buurten database to
+    retrieve buurt outlines and population density data.
+
+    Args:
+        user_input : list of defined areas or BBox
+            List of either a (list of) named area(s) or a Bounding Box.
+        
+        cbs_properties : list of strings
+            List of CBS WFS ids to gather during a CBS WFS Query
+        
+        data_folder : string 
+            Data folder directory
+        
+        buurt_index_skip : list of integers 
+            Optional input of selection integers for buurtnames when multiple 
+            results are found.
+           
+    Returns:
+        query : string
+            String containing the building query.
+    """
     #Example of a CBS Query:
     #https://service.pdok.nl/cbs/wijkenbuurten/2021/wfs/v1_0?service=wfs&version=2.0.0&srsName=EPSG:3857&request=GetFeature&typeName=cbs_buurten_2021&propertyName=(wijkenbuurten:geom,wijkenbuurten:buurtcode,wijkenbuurten:buurtnaam,wijkenbuurten:aantalHuishoudens)&bbox=80847.89481955457,443393.6485061926,86835.79389681925,449094.39207776875
     
